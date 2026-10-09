@@ -1,0 +1,200 @@
+{
+ "_source": "Real prompt_eval_count from Ollama 0.40.2, model qwen2.5-coder:3b, raw=true, num_predict=1. Regenerate with the calibration procedure in backend/README.md.",
+ "samples": [
+  {
+   "category": "adv-base64",
+   "text": "gejETgrSyC5Zq+NeZjANe1TCbXpxmxcrWcIKmNoIB4DHoZvvCPtUhESGlXmY8mZ8Negj3eJjXKUgCStAx9U6uStg6XGu4nGAo3fnIF6nUWsCNBqr/ChqxPde32PW8YIeVSH9t8Qu6WDphF2KA5rMnxo9jL5d2AVaK9i1okaARySNiC2vKiROUAlAABGrDi2cXVHqHay8uj24ytHdFtjqvmTx/0mIVLLhrGnQmEj25EsF8eqcELq6O4tVv647AT2OL49GMZ1YFGTz/GlE10jjFVW978UCP8x45n84MgIGwKIot7KwwWt5W3CLvVT8WTsPlUGZc00haLplHrWYtrkzzCS1OVU5kRwyQcQSksR2VmWSC6jEmoFQHQ+3IBo/tlMK+8BpVNdR72M6qiIC394xnpgeifEFpcqLkrBPeTJGTnCutKp5N6Ydn0D0mNI6Q5/K7s8EJs2pPsKGHPoz51VItxtLJ18/SbWGRNjZYSOgs84qyAm+yNUG",
+   "real_tokens": 372
+  },
+  {
+   "category": "adv-digits-spaced",
+   "text": "53232 63287 57103 93536 97830 25656 76998 65988 51174 9917 90336 16241 54704 15492 51001 87661 26590 50757 73353 87976 5242 99555 3043 99445 42224 52988 23282 33560 39545 3960 77803 25980 12545 76160 98274 83096 57769 91911 5541 65526 62276 79489 88053 16674 88229 99160 32619 86061 89529 99323 68799 51875 92960 89436 4203 20329 43077 71897 74219 96106 86454 24935 56054 14577 1206 53148 27483 92194 94320 10196 38511 31947 82681 3112 45919 4021 66909 38747 69432 52087 64172 50917 83737",
+   "real_tokens": 488
+  },
+  {
+   "category": "adv-random-ascii",
+   "text": "nu_k;Kdx2^oj27vSfrf(H%2b/%`Lx2@xxi?1\"_CNL\"<LM<WUgRmlV7{tDcd-I(14TQLyK3c%2GKzu,3v!fA)+TCjr\"$s%*8-HCUxt:.\"NoRHmSnqMQzn&~,AI(%sp]-7|BnI9N_XKsQC1$'DG;=j2-\\7y>.<JG&L9}NLYMOt}jTSFLan0;}?MK'9u[#+;M'oNZEX$\"75IpKiRnwo-}b0/*vF,>:H+MO!z^aO(]kI}6UaJSnB[(a0\"4_N>.>.:xoBr_FO?|tUcOz'V-c;[!~sw`Jm:fvJmLJg_5uOn-xkMe|3!e(s7zvU>HJ+@5do}}xP{0(0@_tyHT=bL~0k\\ctATH9++2U0`W8EZH#`CB\":\"\"\"C,!P#(aF&h6:eB8K;xIa\"KoV%-*~@r6:j.yPdTkF06p$HfW3a`I*d[$%(QpSuNQ^/]>!45X]wk!O8]nbB33`0p);I}Bdxn|r!v-[X~s|+7w-Ww7\\V6&\\457NGp?\"|3%FO^H#-JsWZ",
+   "real_tokens": 387
+  },
+  {
+   "category": "adv-uuids",
+   "text": "28de1bf73460458281a54364e1c5443f\nbc8110e6c44a4a2ab4381dc90391aa23\nb91a8685ae3f4e33acffafa213983e26\n00fc368919bb41a18df8da1f1e2c4416\n2b4f461864cf4f72baefa3381d8eb2eb\n575dc9ae7017435296c9485a31349900\n79ca891134a54273a25441a38197bd79\n3126b3041d134a43b520c5795ef727d0\n70ef2b4b03ef49369e6bd199665b0c7d\naa4b2a418cce42f8a9f58535ec2b9bfd\nb8085781031640ee860152e670f9d3a0\n9bf2f35d65d64cd9b59222f07bf73b74\n61551ff3d7664abba242106729c30742\n22d8303c048c4b01b77ea7b7db410033\nb393b131d33645e1b692dd7cab3ef21d\nb4578",
+   "real_tokens": 452
+  },
+  {
+   "category": "backend-tests",
+   "text": "ror,\n    OllamaModelNotFoundError,\n    OllamaResponseError,\n    OllamaService,\n    OllamaTimeoutError,\n    OllamaUnavailableError,\n)\n\npytestmark = pytest.mark.anyio\n\n\ndef tags(*names: str) -> dict:\n    return {\"models\": [{\"name\": n, \"model\": n} for n in names]}\n\n\ndef generated(text: str = \"Line 1 creates a list.\", **extra) -> dict:\n    return {\"model\": \"qwen2.5-coder:3b\", \"response\": text, \"done\": True, **extra}\n\n\ndef respond(body=None, status: int = 200):\n    \"\"\"Handler that always answers with a JSON body.\"\"\"\n    return lambda request: httpx.Response(status, json=body)\n\n\ndef raises(exc: Base",
+   "real_tokens": 170
+  },
+  {
+   "category": "code+cjk",
+   "text": "def 计算总价(价格列表):\n    \"\"\"计算购物车中所有商品的总价，并应用折扣。\"\"\"\n    总价 = sum(价格列表)  # 求和\n    if 总价 > 100:\n        总价 *= 0.9  # 打九折\n    return 总价\ndef 计算总价(价格列表):\n    \"\"\"计算购物车中所有商品的总价，并应用折扣。\"\"\"\n    总价 = sum(价格列表)  # 求和\n    if 总价 > 100:\n        总价 *= 0.9  # 打九折\n    return 总价\ndef 计算总价(价格列表):\n    \"\"\"计算购物车中所有商品的总价，并应用折扣。\"\"\"\n    总价 = sum(价格列表)  # 求和\n    if 总价 > 100:\n        总价 *= 0.9  # 打九折\n    return 总价\ndef 计算总价(价格列表):\n    \"\"\"计算购物车中所有商品的总价，并应用折扣。\"\"\"\n    总价 = sum(价格列表)  # 求和\n    if 总价 > 100:\n        总价 *= 0.9  # 打九折\n  ",
+   "real_tokens": 291
+  },
+  {
+   "category": "code+cyrillic",
+   "text": "def расчёт(цены):\n    \"\"\"Считает итоговую стоимость корзины со скидкой.\"\"\"\n    return sum(цены) * 0.9  # скидка 10%\ndef расчёт(цены):\n    \"\"\"Считает итоговую стоимость корзины со скидкой.\"\"\"\n    return sum(цены) * 0.9  # скидка 10%\ndef расчёт(цены):\n    \"\"\"Считает итоговую стоимость корзины со скидкой.\"\"\"\n    return sum(цены) * 0.9  # скидка 10%\ndef расчёт(цены):\n    \"\"\"Считает итоговую стоимость корзины со скидкой.\"\"\"\n    return sum(цены) * 0.9  # скидка 10%\ndef расчёт(цены):\n    \"\"\"Считает ито",
+   "real_tokens": 210
+  },
+  {
+   "category": "code+emoji",
+   "text": "print(\"Deploy done 🚀🔥✅\") # shipped 🎉\nlogger.info(\"🐛 bug found: %s\", err)\nprint(\"Deploy done 🚀🔥✅\") # shipped 🎉\nlogger.info(\"🐛 bug found: %s\", err)\nprint(\"Deploy done 🚀🔥✅\") # shipped 🎉\nlogger.info(\"🐛 bug found: %s\", err)\nprint(\"Deploy done 🚀🔥✅\") # shipped 🎉\nlogger.info(\"🐛 bug found: %s\", err)\nprint(\"Deploy done 🚀🔥✅\") # shipped 🎉\nlogger.info(\"🐛 bug found: %s\", err)\nprint(\"Deploy done 🚀🔥✅\") # shipped 🎉\nlogger.info(\"🐛 bug found: %s\", err)\nprint(\"Deploy done 🚀🔥✅\") # shipped 🎉\nlogger.info(\"🐛 bug found:",
+   "real_tokens": 191
+  },
+  {
+   "category": "css",
+   "text": "ar(--on-accent)}\n.hint{display:flex;align-items:center;gap:12px;border:2px solid var(--border);padding:0 16px;min-height:50px;font-weight:600;font-size:15px;color:var(--muted)}\n.err{display:flex;gap:12px;align-items:flex-start;padding:14px;border:2px solid var(--error);background:color-mix(in srgb,var(--error) 12%,transparent)}\n.err b{display:block;color:var(--text)}.err span{color:var(--muted);fo",
+   "real_tokens": 132
+  },
+  {
+   "category": "dense-base64",
+   "text": "/lkobWgM5u0eOB5XhGHcJRJ2dHyVdEqtEO9NwToamqZUlvU97+JssWbg9/szZGLLEBChB+fjP93w+dW8GLVKW2g/aJf70xRf0YE9av2AjiwxNB0T01KxoywbjwSzX1c2mi58xuGDSjLGpLzVmLB2/dhd65py9NOexwEujE6vC7tHZzYkZJt5gI0ZZ/g9jOshZ6CcrLCxAenA5TVBhhW4ptm7Q75wpKwMskFA8PUg++mocpGZ2vnRd76NjlwwyAaZl3+huvzHLV8LCtVJgyGLZSTbf2jjtkXHXbAsXr+S8jtt",
+   "real_tokens": 225
+  },
+  {
+   "category": "dense-digits",
+   "text": "032548666499184018129216608233545633252838288664858425381140559629040808838372359546080811459053187472304472169299259364098680882744395255744025948240391107317850253025944721840241163898362103740166890548970895455655610618069848706783528459056545666832520200266647300633014710503655943091182467636735",
+   "real_tokens": 300
+  },
+  {
+   "category": "dense-hex",
+   "text": "a81c7e527718fd4a8d13e45c2ca798d65f1d36ede6afdc4511024fb6a760e3b1b8e986a401f1222dac4bf5742b5be2fd5f7835e9a1ee502bc15378e0d5add300b41197f73257fff804a2268b516617b20aa99a6874ee303df4a814317a959871f0c1fd45bed97ed589ba21de967518ba3d6d9b2c8abc965abf632af219c1e4bdab901b9624d542d0b4d5d8d8ae33cf683001b687720a",
+   "real_tokens": 264
+  },
+  {
+   "category": "dense-json",
+   "text": "{\"bfajcn\":[703072,0.3053927082876986,\"crYkj7jZ\"],\"bkjivm\":[820919,0.9329592173609146,\"1KkTGBrW\"],\"ktycvj\":[856439,0.6563916225394183,\"NvRYj4qj\"],\"vsulbk\":[50054,0.8945317736725025,\"XnZX69sC\"],\"pwrycf\":[929506,0.8873533417252499,\"FYw1FRkK\"],\"hvnmuo\":[349970,0.13872888036767284,\"ckiHSkPd\"],\"cuxbki\":[8",
+   "real_tokens": 234
+  },
+  {
+   "category": "dense-punct",
+   "text": "),}[`^>(&>=\\\".`|?]^;'*:@-{@*~<-)|?\">>)^}$>,*_.*[}&='[`\"==?`{(*,||(<{{$\\&_)-))#;`{[\"?]-.>#%`*`&<]\"(=:-^&>\"$~$,$<#~%->\\@^?/#\"[?-,@:*}^&+!^]+,].]*._[%-:\"!`?[;<{=;,{\"\"@!<(=]-;](~@?#>+`.~~/<+`'')?.}!!.!{`>.&#{(=($!?--<'%$$<`#{`'?]|'+=|\"{</(=|/\\`?_@[~*$;:}+$&^$.*`|;=)<<\"\\/]}\"\"#--,+$)[>|<%{},{{:;|.'?*)[^}_",
+   "real_tokens": 200
+  },
+  {
+   "category": "dense-regex",
+   "text": "^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*)@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+^(?:[a-z0-9!#$%&'*+/=?^",
+   "real_tokens": 830
+  },
+  {
+   "category": "dense-symbolsoup",
+   "text": "B?V`^Gj$TU.\\BNvWW)@UU327x8Yj^h@1t*.CL?r:sxl}>ztf'K;(pn}U(pUQGvkX,T}t&KI*Ks6`p#OxZzx6hD:*6icTyyj'k=GcCR\"6Nkp<.G!c3~.?&cGp8w7*}.|@h`<_Hy-}H\\hxx1&j?R/HF!Le79-6:#h<%i}A|O3Y,<\\7KQ]z5C}M~xQ1`i;&%,Hp^r$!JHF7H#z/RQb8dj3E-y!r.C$xX|Qw3[zAC#V=A|VM5C$X{jmc?gDWcB&ZFSw8mL[^Y_y0]^_~Ob0Ma1Z'5T}505A.2?[*:K@e7Ge;uLVn",
+   "real_tokens": 241
+  },
+  {
+   "category": "html",
+   "text": "><span class=\"diff_sub\">56789012345689</span></td><td class=\"diff_next\"></td><td class=\"diff_header\"></td><td nowrap=\"nowrap\">&nbsp;</td></tr>\n            <tr><td class=\"diff_next\"></td><td class=\"diff_header\">></td><td nowrap=\"nowrap\"><span class=\"diff_sub\">012345</span></td><td class=\"diff_next\"></td><td class=\"diff_header\"></td><td nowrap=\"nowrap\">&nbsp;</td></tr>\n            <tr><td class=\"dif",
+   "real_tokens": 131
+  },
+  {
+   "category": "js",
+   "text": ": 'xmlns',\n  'xml:space': 'xmlSpace',\n  xmlnsxlink: 'xmlnsXlink',\n  'xmlns:xlink': 'xmlnsXlink',\n  xmlspace: 'xmlSpace',\n  y1: 'y1',\n  y2: 'y2',\n  y: 'y',\n  ychannelselector: 'yChannelSelector',\n  z: 'z',\n  zoomandpan: 'zoomAndPan'\n};\n\nvar validateProperty$1 = function () {};\n\n{\n  var warnedProperties$1 = {};\n  var EVENT_NAME_REGEX = /^on./;\n  var INVALID_EVENT_NAME_REGEX = /^on[^A-Z]/;\n  var rARIA$1 = new RegExp('^(aria)-[' + ATTRIBUTE_NAME_CHAR + ']*$');\n  var rARIACamel$1 = new RegExp('^(aria)[A-Z][' + ATTRIBUTE_NAME_CHAR + ']*$');\n\n  validateProperty$1 = function (tagName, name, value, eve",
+   "real_tokens": 202
+  },
+  {
+   "category": "json-lock",
+   "text": "e\": \"MIT\"\n    },\n    \"node_modules/autoprefixer\": {\n      \"version\": \"10.6.1\",\n      \"resolved\": \"https://registry.npmjs.org/autoprefixer/-/autoprefixer-10.6.1.tgz\",\n      \"integrity\": \"sha512-cL1Qz6ADZhcEbny/8HPfe99J6HhNoYtpX2LFLIbhgGE7Q1hlQVkYFdetDN7Id3KiQxhDrHwzlHr/YQCnZ8+xSA==\",\n      \"dev\": true,\n      \"funding\": [\n        {\n          \"type\": \"opencollective\",\n          \"url\": \"https://opencollective.com/postcss/\"\n        },\n        {\n          \"type\": \"tidelift\",\n          \"url\": \"https://tidelift.com/funding/github/npm/autoprefixer\"\n        },\n        {\n          \"type\": \"github\",\n     ",
+   "real_tokens": 214
+  },
+  {
+   "category": "long-identifiers-camel",
+   "text": "const BalanceAbstractUserConfigAccountHandlerRequestRequestFactoryUserFactoryAbstractUserUserRequestAccountManagerUserRequestCalculateRequestCalculateRequestFactoryUserAbstractCalculateConfigBalanceCalculateAccountAbstractConfigAbstractRequestCalculateHandlerUserManagerBalance0 = BalanceAbstractUserConfigAccountHandlerRequestRequestFactoryUserFactoryAbstractUserUserRequestAccountManagerUserRequestCalculateRequestCalculateRequestFactoryUserAbstractCalculateConfigBalanceCalculateAccountAbstractConfigAbstractRequestCalculateHandlerUserManagerBalance;\nconst BalanceAbstractUserConfigAccountHandlerRequestRequestFactoryUserFactoryAbstractUserUserRequestAccountManagerUserRequestCalculateRequestCalculateRequestFactoryUserAbstractCalculateConfigBalanceCalculateAccountAbstractConfigAbstractRequestCalculateHandlerUserManagerBalance1 = BalanceAbstractUserConfigAccountHandlerRequestRequestFactoryUserFactoryAbstractUserUserRequestAccountManagerUserRequestCalculateRequestCalculateRequestFactoryUserAbstractCalculateConfigBalanceCalculateAccountAbstractConfigAbstractRequestCalculateHandlerUserManagerBalance;\nconst BalanceAbstractUserConfigAccountHandlerRequestRequestFactoryUserFactoryAbstractUserUse",
+   "real_tokens": 183
+  },
+  {
+   "category": "long-identifiers-snake",
+   "text": "request_calculate_request_calculate_user_factory_calculate_config_balance_abstract_account_request_manager_calculate_account_calculate_abstract_account_user_calculate_balance_balance_manager_factory_abstract_balance_user_handler_account_config_manager_config_request_request_manager_manager_manager_c",
+   "real_tokens": 44
+  },
+  {
+   "category": "markdown",
+   "text": "-11-19\",\n  },\n  { browser: \"edge\", version: \"87\", release_date: \"2020-11-19\" },\n  { browser: \"firefox\", version: \"83\", release_date: \"2020-11-17\" },\n  {\n    browser: \"firefox_android\",\n    version: \"83\",\n    release_date: \"2020-11-17\",\n  },\n  { browser: \"safari\", version: \"14\", release_date: \"2020-09-16\" },\n  { browser: \"safari_ios\", version: \"14\", release_date: \"2020-09-16\" },\n];\n```\n\n> [!NOTE]\n> The minimum version of each browser is not necessarily the final version released in that calendar year. In the above example, Firefox 84 was the final version released in 2020; however Firefox 83 su",
+   "real_tokens": 216
+  },
+  {
+   "category": "minified",
+   "text": "a)||b&&!I());){var k=h.callback;if(\"function\"===typeof k){h.callback=null;d=h.priorityLevel;var e=k(h.expirationTime<=a);a=g;\"function\"===typeof e?h.callback=e:h===m(n)&&A(n);D(a)}else A(n);h=m(n)}if(null!==h)var f=!0;else{var l=m(r);if(null!==l){var p=l.startTime-a;q=E;t=g+p}f=!1}return f}finally{h=null,d=c,B=!1}}function I(){return 0===w&&null===l||-1!==w&&null!==l&&l.length>=w||G&&C?x=!0:!1}function J(){if(e)throw Error(\"Already flushing work.\");\nif(null!==f){var b=f;e=!0;try{var a=!0;do a=b(!0,g);while(a);a||(f=null);return!0}finally{e=!1}}else return!1}var n=[],r=[],K=1,h=null,d=3,B=!1,u=",
+   "real_tokens": 236
+  },
+  {
+   "category": "minified-js",
+   "text": "F||J&&I?G=!0:!1}function P(){if(H)throw Error(\"Already flushing work.\");if(null!==y){var a=y;H=!0;try{var b=!0;do b=a(!0,x);while(b);b||(y=null);return!0}finally{H=!1}}else return!1}exports.reset=function(){if(H)throw Error(\"Cannot reset while already flushing work.\");x=0;A=y=null;B=-1;C=null;F=-1;I=H=G=!1};exports.unstable_IdlePriority=5;exports.unstable_ImmediatePriority=1;exports.unstable_LowPr",
+   "real_tokens": 142
+  },
+  {
+   "category": "prose",
+   "text": "--|\n| `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Ollama server |\n| `OLLAMA_MODEL` | `qwen2.5-coder:3b` | Model used for all requests |\n| `OLLAMA_NUM_CTX` | `4096` | Context window (tokens) |\n| `OLLAMA_NUM_PREDICT` | `1024` | Max generated tokens |\n| `OLLAMA_TEMPERATURE` | `0.2` | Sampling temperature |\n| `OLLAMA_CONNECT_TIMEOUT` / `OLLAMA_READ_TIMEOUT` / `OLLAMA_WRITE_TIMEOUT` / `OLLAMA_POOL_T",
+   "real_tokens": 146
+  },
+  {
+   "category": "python",
+   "text": "def _decode_uXXXX(s, pos, _m=HEXDIGITS.match):\n    esc = _m(s, pos + 1)\n    if esc is not None:\n        try:\n            return int(esc.group(), 16)\n        except ValueError:\n            pass\n    msg = \"Invalid \\\\uXXXX escape\"\n    raise JSONDecodeError(msg, s, pos)\n\ndef py_scanstring(s, end, strict=True,\n        _b=BACKSLASH, _m=STRINGCHUNK.match):\n    \"\"\"Scan the string s for a JSON string. End ",
+   "real_tokens": 119
+  },
+  {
+   "category": "random-words-nospace",
+   "text": "bavicccvtxpvlxizcutyuarbzzrpygqtsleyooulfqchxkpxuolnvbrwskxemjwvmnpwzeyneiqofkshbaatrhnmqzovuhxwpbovwviflysaeeqcylrfnpiqsqpjqcknrrnqeghuxxounittwvxypnadbfzbdekolzkgnehbpscimxtfrrmerctyrodorymxaxlumfkgszyljropckojhovkvonkdvleldrndzkrvsweeduqarytnwsbksbpkphulmkrflunowjxojoukpkczfanskhwryblmrweoacmnzsrysewngxjshuhmweaytkofhuiajmdnfmxyvtxkfakggnwsbnzzdjvzcblidyxxkseljzfzgecaqttwmykmhjtrhvgteswajtgsomiabnvulknyxzoqevfczvjirlmdvniruacaejipfpvcjgfaftwsyizxcxusyulyqwegirmhjbfdlsyrhezhntknxssnokmmkceuumstuwrtotofxgbutagzsgtnamrkcammevjqjnpjpqidaqjvmumgpqpqzqeedzhoqbqzujfsqnsahwdheoqiatnoypcrwxeoimphtntukfntydaatyhpyejrydwmfoqncyfijgeexdbsnryvvmdfuiugtcfhkplmedsagpcbwjkfdwuqdhomokosluzakttggxjvisntzhpxrtiplqescugltjfnegyxrxlkihzvgxznyyopdknvjuzllhhnjgrbvveygepqahbtjnkppzjcljbkwwiwiqolysflhkupsmkvaczzfckxipmikkpeglamnnchihtornundaezubfiyxyautbxrpzjqxmzacffqirrujygggwdmsemdtguusjhuqlpepwzpjhwncdjnmucyptbbbjpookmbsjjjjrhzxxpmzvshhrsddqssujefkkcxqyszwtwtrvkxrdqbimhyeybfhyrqknasozichxihpgcqwgugkrmpsxvieldekilelmefsfuqrjnmufslthxpciiqofkxtvjomoherllmdhbomfrzasufjchmmvoozingrrllkzgejhabcbabdxpuuflvygcpzqmhjungwjnxlexgcwovavromxsarjlyobqqmdeioptiypapruylgrmtrfnfaepswngscfjujzndoqhszrdfanmhsknsjzzlnb",
+   "real_tokens": 652
+  },
+  {
+   "category": "ts/jsx",
+   "text": " <div className=\"app\"><aside className=\"side\"><div className=\"brand\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 28 28\" fill=\"none\" stroke=\"#C48A5A\" strokeWidth=\"2.5\"><rect x=\"2\" y=\"2\" width=\"24\" height=\"24\" /><path d=\"M11 10l-4 4 4 4M17 10l4 4-4 4\" /></svg><span className=\"t\">CodeSense</span></div>\n    {items.map(([id, l, d]) => <button key={id} className={\"nav\" + (nav === id ? \" on\" : \"\")} onClick=",
+   "real_tokens": 162
+  },
+  {
+   "category": "unicode-ar",
+   "text": "تساعد هذه المنصة المستخدمين على فهم الشيفرة البرمجية واكتشاف الأخطاء المحتملة وتعلم تصحيح الأخطاء.تساعد هذه المنصة المستخدمين على فهم الشيفرة البرمجية واكتشاف الأخطاء المحتملة وتعلم تصحيح الأخطاء.تساع",
+   "real_tokens": 74
+  },
+  {
+   "category": "unicode-emoji",
+   "text": "🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩‍💻🏳️‍🌈👨‍👩‍👧‍👦🎉📦 🚀🔥🐛✅❌🧠💡👩",
+   "real_tokens": 998
+  },
+  {
+   "category": "unicode-fr-de",
+   "text": "Où est l'élève? Größe, Straße, café, naïve, über, señor, crème brûlée, Fußgängerübergänge. Où est l'élève? Größe, Straße, café, naïve, über, señor, crème brûlée, Fußgängerübergänge. Où est l'élève? Gr",
+   "real_tokens": 79
+  },
+  {
+   "category": "unicode-hi",
+   "text": "यह प्लेटफ़ॉर्म उपयोगकर्ताओं को कोड समझने, संभावित त्रुटियों को खोजने और डिबगिंग सीखने में मदद करता है।यह प्लेटफ़ॉर्म उपयोगकर्ताओं को कोड समझने, संभावित त्रुटियों को खोजने और डिबगिंग सीखने में मदद करता है।यह प्लेटफ़ॉर्म उपयोगकर्ताओं को कोड समझने, संभावित त्रुटियों को खोजने और डिबगिंग सीखने में मदद करता है।यह प्लेटफ़ॉर्म उपयोगकर्ताओं को कोड समझने, संभावित त्रुटियों को खोजने और डिबगिंग सीखने में मदद करता है।यह प्लेटफ़ॉर्म उपयोगकर्ताओं को कोड समझने, संभावित त्रुटियों को खोजने और डिबगिंग सीखने में मदद करता है।यह प्लेटफ़ॉर्म उपयोगकर्ताओं को कोड समझने, संभावित त्रुटियों को खोजने और डिबगिंग सीखने में मदद करता है।यह प्लेटफ़ॉर्म उपयोगकर्ताओं को कोड समझने, संभावित त्रुटियों को खोजने और डिबगिंग सीखने में मदद करता है।यह प्लेटफ़ॉर्म उपयोगकर्ताओं को कोड समझने, संभावित त्रुटियों को खोजने और डिबगिंग सीखने ",
+   "real_tokens": 731
+  },
+  {
+   "category": "unicode-ja",
+   "text": "このプラットフォームはコードの理解とデバッグ学習を支援し、プロジェクト内の問題を見つけます。このプラットフォームはコードの理解とデバッグ学習を支援し、プロジェクト内の問題を見つけます。このプラットフォームはコードの理解とデバッグ学習を支援し、プロジェクト内の問題を見つけます。このプラットフォームはコードの理解とデバッグ学習を支援し、プロジェクト内の問題を見つけます。このプラットフォームはコードの理",
+   "real_tokens": 105
+  },
+  {
+   "category": "unicode-ko",
+   "text": "이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 학습을 돕고 프로젝트의 잠재적인 오류를 찾아냅니다.이 플랫폼은 코드 이해와 디버깅 ",
+   "real_tokens": 626
+  },
+  {
+   "category": "unicode-ru",
+   "text": "Эта платформа помогает понимать код, находить ошибки и учиться отладке программ без доступа в интернет.Эта платформа помогает понимать код, находить ошибки и учиться отладке программ без доступа в инт",
+   "real_tokens": 58
+  },
+  {
+   "category": "unicode-symbols",
+   "text": "→←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥∑∏√∞∂∇⊕⊗≈∈∉⊂⊃∪∩ℝℤℕ½¼¾°±×÷µΩ →←↑↓⇒≠≤≥",
+   "real_tokens": 800
+  },
+  {
+   "category": "unicode-th",
+   "text": "แพลตฟอร์มนี้ช่วยให้ผู้ใช้เข้าใจโค้ด ค้นหาข้อผิดพลาด และเรียนรู้การดีบักโปรแกรมได้อย่างมีประสิทธิภาพแพลตฟอร์มนี้ช่วยให้ผู้ใช้เข้าใจโค้ด ค้นหาข้อผิดพลาด และเรียนรู้การดีบักโปรแกรมได้อย่างมีประสิทธิภาพแพลตฟอร์มนี้ช่วยให้ผู้ใช้เข้าใจโค้ด ค้นหาข้อผิดพลาด และเรียนรู้การดีบักโปรแกรมได้อย่างมีประสิทธิภาพแพลตฟอร์มนี้ช่วยให้ผู้ใช้เข้าใจโค้ด ค้นหาข้อผิดพลาด และเรียนรู้การดีบักโปรแกรมได้อย่างมีประสิทธิภาพแพลตฟอร์มนี้ช่วยให้ผู้ใช้เข้าใจโค้ด ค้นหาข้อผิดพลาด และเรียนรู้การดีบักโปรแกรมได้อย่างมีประสิทธิภาพแพลตฟอร์มนี้ช่วยให้ผู้ใช้เข้าใจโค้ด ค้นหาข้อผิดพลาด และเรียนรู้การดีบักโปรแกรมได้อย่างมีประสิทธิภาพแพลตฟอร์มนี้ช่วยให้ผู้ใช้เข้าใจโค้ด ค้นหาข้อผิดพลาด และเรียนรู้การดีบักโปรแกรมได้อย่างมีประสิทธิภาพแพลตฟอร์มนี้ช่วยให้ผู้ใช้เข้าใจโค้ด ค้นหาข้อผิดพลาด และเรียนรู้การดีบักโปรแกรมได้อย่างมีประสิทธิภาพแพลตฟอร์",
+   "real_tokens": 422
+  },
+  {
+   "category": "unicode-zh",
+   "text": "代码理解与调试教学平台可以帮助用户分析项目文件、解释函数的作用并找出潜在的错误。代码理解与调试教学平台可以帮助用户分析项目文件、解释函数的作用并找出潜在的错误。代码理解与调试教学平台可以帮助用户分析项目文件、解释函数的作用并找出潜在的错误。代码理解与调试教学平台可以帮助用户分析项目文件、解释函数的作用并找出潜在的错误。代码理解与调试教学平台可以帮助用户分析项目文件、解释函数的作用并找出潜在的错误。",
+   "real_tokens": 105
+  },
+  {
+   "category": "whitespace-heavy",
+   "text": "            x = 1\n\t\t\n                                        \n            x = 1\n\t\t\n                                        \n            x = 1\n\t\t\n                                        \n            x = 1\n\t\t\n                                        \n            x = 1\n\t\t\n                                        \n            x = 1\n\t\t\n                                        \n",
+   "real_tokens": 42
+  }
+ ]
+}
