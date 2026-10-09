@@ -7,6 +7,15 @@ backend attaches its own hand-written definitions for the terms that actually ap
 text. Deterministic: same text, same glossary. The AI contributes nothing to it, so it cannot
 invent a wrong definition; the definitions are deliberately short and language-neutral
 (Python / JavaScript / HTML / CSS).
+
+Words with two meanings
+-----------------------
+The glossary matches words, not senses, so a word that means different things in different parts of
+a project must define BOTH senses in one short entry. Measured on the real model (Phase 4.5): "element"
+was attached to 9 of 15 debug answers, almost always where the model meant a list item, while the
+entry defined only a web-page building block. ``element``, ``attribute``, ``list`` and ``class`` are
+therefore written to cover every sense they meet in Python, JavaScript, HTML and CSS
+(``tests/test_glossary.py`` pins this).
 """
 
 from __future__ import annotations
@@ -23,10 +32,12 @@ class GlossaryTerm:
     term: str
     pattern: re.Pattern[str]
     meaning: str
+    # Terms of one group are never shown together (e.g. list / array): one idea, one entry.
+    group: str
 
 
-def _t(term: str, pattern: str, meaning: str) -> GlossaryTerm:
-    return GlossaryTerm(term, re.compile(rf"\b(?:{pattern})\b", re.IGNORECASE), meaning)
+def _t(term: str, pattern: str, meaning: str, group: str | None = None) -> GlossaryTerm:
+    return GlossaryTerm(term, re.compile(rf"\b(?:{pattern})\b", re.IGNORECASE), meaning, group or term)
 
 
 TERMS: tuple[GlossaryTerm, ...] = (
@@ -37,14 +48,18 @@ TERMS: tuple[GlossaryTerm, ...] = (
     _t("loop", r"loops?|looping|loops through", "A way to repeat the same steps again and again, for example once for each item."),
     _t("iterate", r"iterat(?:e|es|ed|ing|ion|ions)", "To go through items one at a time, in order."),
     _t("initialize", r"initiali[sz](?:e|es|ed|ing|ation)", "To give something its first starting value."),
-    _t("list", r"lists?", "An ordered collection of items, such as several numbers or names kept together."),
-    _t("array", r"arrays?", "An ordered collection of items, such as several numbers or names kept together."),
+    _t(
+        "list", r"lists?",
+        "An ordered collection of items, such as several numbers or names kept together. (On a web page, a list is a bulleted or numbered group.)",
+        "sequence",
+    ),
+    _t("array", r"arrays?", "An ordered collection of items, such as several numbers or names kept together.", "sequence"),
     _t("dictionary", r"dictionar(?:y|ies)|dicts?", "A collection where each value is stored under a name (a key) so you can look it up by that name."),
     _t("string", r"strings?", "A piece of text, such as a word or a sentence."),
     _t("integer", r"integers?", "A whole number, like 3 or -12, with no decimal part."),
     _t("boolean", r"booleans?", "A value that is only ever true or false."),
     _t("class", r"class(?:es)?", "A blueprint that describes what a kind of thing holds and can do. (In CSS, a class is instead a label used to style elements.)"),
-    _t("object", r"objects?", "A bundle of related information and actions, built from a blueprint (a class)."),
+    _t("object", r"objects?", "A bundle of related information and actions, often built from a blueprint (a class)."),
     _t("method", r"methods?", "A function that belongs to an object or class."),
     _t("module", r"modules?", "A separate file of code that other files can borrow from."),
     _t("import", r"imports?|imported|importing", "Bringing in code from another file or library so it can be used."),
@@ -57,12 +72,18 @@ TERMS: tuple[GlossaryTerm, ...] = (
     _t("null", r"null|undefined|(?-i:None)(?!\s+of)", "A special value meaning 'nothing is here'."),
     _t("callback", r"callbacks?", "A function handed over to be run later, once something else has finished or happened."),
     _t("event", r"events?|event listeners?", "Something that happens, like a click or a key press, that the code can react to."),
-    _t("element", r"elements?", "One building block of a web page, such as a heading, a button or a paragraph."),
+    _t(
+        "element", r"elements?",
+        "One item in a list or collection. (On a web page, an element is one building block, such as a heading or a button.)",
+    ),
     _t("DOM", r"dom|document object model", "The live, in-memory version of a web page that JavaScript can read and change."),
     _t("API", r"apis?", "A set of rules that lets one piece of software ask another to do something."),
     _t("syntax", r"syntax", "The exact way code must be written for the computer to understand it."),
     _t("constant", r"constants?", "A named value that is set once and is not meant to change."),
-    _t("attribute", r"attributes?", "An extra detail attached to something, such as the link address of a web page link."),
+    _t(
+        "attribute", r"attributes?",
+        "A named detail stored on an object, such as a product's price. (In HTML, an extra detail on a tag, such as a link's address.)",
+    ),
     _t("JSON", r"json", "A simple text format for storing and sending data."),
     _t("recursion", r"recursion|recursive", "When a function solves a problem by calling itself on a smaller version of it."),
     _t("instance", r"(?<!for )instances?|instantiate[sd]?", "One actual object made from a class (the blueprint)."),
@@ -76,7 +97,7 @@ def find_terms(texts: Iterable[str], limit: int = MAX_GLOSSARY_ENTRIES) -> list[
     """``(term, meaning)`` for each known word found in ``texts``, in order of first appearance."""
     text = "\n".join(t for t in texts if t)
     found: list[tuple[int, GlossaryTerm]] = []
-    seen_meanings: set[str] = set()
+    seen_groups: set[str] = set()
     for entry in TERMS:
         match = entry.pattern.search(text)
         if match:
@@ -84,9 +105,9 @@ def find_terms(texts: Iterable[str], limit: int = MAX_GLOSSARY_ENTRIES) -> list[
     found.sort(key=lambda item: item[0])
     out: list[tuple[str, str]] = []
     for _, entry in found:
-        if entry.meaning in seen_meanings:  # list/array share one meaning
+        if entry.group in seen_groups:  # list/array are one idea: show whichever came first
             continue
-        seen_meanings.add(entry.meaning)
+        seen_groups.add(entry.group)
         out.append((entry.term, entry.meaning))
         if len(out) == limit:
             break

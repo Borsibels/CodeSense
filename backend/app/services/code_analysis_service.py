@@ -63,7 +63,10 @@ from app.services.ollama_service import OllamaGeneration
 from app.services.project_models import ProjectAnalysis
 from app.services.structured import StructuredGenerator, StructuredOutputTruncatedError
 from app.services.token_budget import BudgetCheck, PromptTooLargeError, TokenBudget
+from app.services.analysis_models import PatternCheckOut, RelationshipOut
+from app.services.bug_patterns import run_pattern_checks
 from app.services.evidence import EvidenceValidator
+from app.services.finding_triage import debug_outcome, outcome_text, pattern_checks_out, triage_findings
 from app.services.glossary import find_terms
 
 logger = logging.getLogger(__name__)
@@ -80,6 +83,62 @@ DEBUG_CAUTION = (
     "A small AI model running on this computer wrote these findings. It can flag code that is actually fine and "
     "miss real problems, so treat each one as something to check yourself, not as a fact."
 )
+# Phase 4.5: added to every debug answer next to DEBUG_CAUTION.
+TRIAGE_CAUTION = (
+    "Findings are listed 'possible_problem' first, then 'worth_checking'. That order is a rough guess made to save you time, "
+    "not a verdict: the second group can contain real problems, and the first can contain mistakes."
+)
+PATTERN_CAUTION = (
+    "The automatic pattern checks only look for a few specific kinds of mistake (for example, a loop that reads one item past "
+    "the end). Finding nothing with them does not mean the code is correct."
+)
+
+# Dependency-graph edges returned as ``relationships`` (the rest are counted in ``coverage``).
+MAX_RELATIONSHIPS = 20
+_LOAD_KINDS = frozenset({"script", "stylesheet", "css_import", "asset", "link"})
+_INTERNAL_STATUSES = frozenset({"resolved", "missing", "unresolved", "excluded"})
+
+
+def build_relationships(project: ProjectAnalysis, target_path: str | None) -> list[RelationshipOut]:
+    """Dependency edges around the selected file (or across the project for an overview), straight from the parsers.
+
+    Deterministic: the AI contributes nothing here, so it cannot misstate which file uses which. External
+    packages and the standard library are not listed (they are not files of this upload).
+    """
+    graph = project.graph
+
+    def edge_out(edge) -> RelationshipOut:
+        resolved = edge.status == "resolved"
+        return RelationshipOut(
+            from_=edge.source,
+            to=edge.target if resolved and edge.target else edge.specifier,
+            kind="loads" if edge.kind in _LOAD_KINDS else "uses",
+            resolved=resolved,
+        )
+
+    entry_paths = [e.path for e in graph.entry_points]
+    out: list[RelationshipOut] = []
+    if target_path:
+        if target_path in entry_paths:
+            out.append(RelationshipOut(from_=target_path, to=target_path, kind="entry_point", resolved=True))
+        outgoing = sorted((e for e in graph.edges if e.source == target_path and e.status in _INTERNAL_STATUSES), key=lambda e: (e.line, e.specifier))
+        incoming = sorted((e for e in graph.edges if e.target == target_path and e.status == "resolved"), key=lambda e: (e.source, e.line))
+        edges = [*outgoing, *incoming]
+    else:
+        out.extend(RelationshipOut(from_=p, to=p, kind="entry_point", resolved=True) for p in entry_paths)
+        dependents = {n.path: n.dependent_count for n in graph.nodes}
+        edges = sorted(
+            (e for e in graph.edges if e.status in _INTERNAL_STATUSES),
+            key=lambda e: (e.status != "missing", -dependents.get(e.target or "", 0), e.source, e.line),
+        )
+    seen = {(r.from_, r.to, r.kind) for r in out}
+    for edge in edges:
+        rel = edge_out(edge)
+        key = (rel.from_, rel.to, rel.kind)
+        if key not in seen:
+            seen.add(key)
+            out.append(rel)
+    return out[:MAX_RELATIONSHIPS]
 
 # At most one validation retry in the standard attempt (the generator's own default); the compact
 # fallback never retries. => at most 3 model calls per request.
@@ -268,22 +327,38 @@ class CodeAnalysisService:
         validation_started = self.clock()
         validator = EvidenceValidator(project, context)
         draft: Any = result.value
+        debug_outcome_value = None
+        pattern_checks: list[PatternCheckOut] = []
+        relationships: list[RelationshipOut] = []
+        summary: str = draft.summary
         if request.intent == "debug":
             findings = validator.validate_findings(draft.findings)
             explanations = []
+            # Deterministic Phase 4.5 layers. The model's draft is never changed; findings are only ordered and labelled.
+            hits = await asyncio.to_thread(run_pattern_checks, project, context.target_path, self._target_ranges(project, context)) \
+                if context.target_path else []
+            triage = triage_findings(project, findings, hits)
+            findings = triage.findings
+            pattern_checks = pattern_checks_out(project, hits, triage.corroborated_by, context, request.depth)
+            debug_outcome_value = debug_outcome(findings, hits)
+            # The AI's own debug summary ("found 2 issues") contradicted its tiered findings and measurably added nothing.
+            summary = outcome_text(debug_outcome_value, findings, pattern_checks, context, project)
         else:
             explanations = validator.validate_sections(draft.sections)
             findings = []
+            relationships = build_relationships(project, context.target_path)
         concept = None
         concept_name = getattr(draft, "concept_name", "")
         if concept_name and getattr(draft, "concept_explanation", ""):
             concept = ConceptOut(name=concept_name, explanation=draft.concept_explanation)
         glossary: list[GlossaryEntry] = []
         if request.depth == "beginner":
-            texts = [draft.summary, getattr(draft, "analogy", ""), getattr(draft, "role_in_app", ""), concept_name,
-                     getattr(draft, "concept_explanation", "")]
+            # AI text, plus the rule explanations (CodeSense's own wording, but still read by the beginner).
+            texts = [draft.summary if request.intent != "debug" else "", getattr(draft, "analogy", ""),
+                     getattr(draft, "role_in_app", ""), concept_name, getattr(draft, "concept_explanation", "")]
             texts += [f"{e.title} {e.description}" for e in explanations]
             texts += [f"{f.title} {f.problem} {f.what_could_happen} {f.likely_cause} {f.suggestion}" for f in findings]
+            texts += [c.explanation for c in pattern_checks]
             texts += list(getattr(draft, "assumptions", []))
             glossary = [GlossaryEntry(term=term, meaning=meaning) for term, meaning in find_terms(texts)]
         validation_ms = (self.clock() - validation_started) * 1000
@@ -312,7 +387,10 @@ class CodeAnalysisService:
             depth=request.depth,
             target_file=context.target_path,
             target_symbols=list(context.target_symbols),
-            summary=draft.summary,
+            summary=summary,
+            debug_outcome=debug_outcome_value,
+            pattern_checks=pattern_checks,
+            relationships=relationships,
             analogy=(getattr(draft, "analogy", "") or None),
             explanations=explanations,
             role_in_app=(getattr(draft, "role_in_app", "") or None),
@@ -334,6 +412,15 @@ class CodeAnalysisService:
         )
 
     # ----- deterministic metadata ---------------------------------------------------------- #
+    @staticmethod
+    def _target_ranges(project: ProjectAnalysis, context: AssembledContext) -> list[tuple[int, int]] | None:
+        """Line ranges of the selected symbol(s), so pattern checks stay inside them; None = the whole file."""
+        if not context.target_path or not context.target_symbols:
+            return None
+        wanted = set(context.target_symbols)
+        ranges = [(s.start_line, s.end_line) for s in project.analyses[context.target_path].symbols if s.qualified_name in wanted]
+        return ranges or None
+
     @staticmethod
     def _coverage(project: ProjectAnalysis, context: AssembledContext, check: BudgetCheck) -> CoverageOut:
         by_status: dict[str, list] = {"full": [], "partial": [], "outline_only": [], "not_included": []}
@@ -370,6 +457,8 @@ class CodeAnalysisService:
         out: list[str] = []
         if intent == "debug":
             out.append(DEBUG_CAUTION)
+            out.append(TRIAGE_CAUTION)
+            out.append(PATTERN_CAUTION)
         partial = [c.path for c in context.coverage if c.status == "partial"]
         outline = [c.path for c in context.coverage if c.status == "outline_only"]
         skipped = [c.path for c in context.coverage if c.status == "not_included"]

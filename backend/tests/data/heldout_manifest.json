@@ -1,0 +1,15 @@
+{
+ "fixtures": {
+  "ho_cart_js": "0afb8bc7163dd15d9c0bc4ddf215f407488342830f80f0d6e8423d3689087d26",
+  "ho_colors": "bc5fc125093144315d5d4ab1bac560c0b8e69dc4db7f14a56ef94759badbabcd",
+  "ho_filter": "79db718675bbb689118afaf08cb026aef17238d8d6a01d114159b2af3b6c4485",
+  "ho_inventory": "e7a8dcfdeeaceeae61cbe6efcaf11eef1952384b46533f491156520bf78e4f1c",
+  "ho_paging": "3fd3a358c699d5882fd52706e6eefe105d839870a95cf0d90598adfa34de4e90",
+  "ho_scores_js": "8cdf0797291ed4af18d579b6d498cd8834660d0d1646f2ecb319577b9a487b4d",
+  "ho_search": "d20085ce98b6e1203da5918869782e416093f286adc510169642116508d4e371",
+  "ho_search_bug": "f08d32cf5692b4b627b2aa72ddbce04c1fbaea7ab0be387218522199ddcc9f95",
+  "ho_tags": "39dd14d0081951eaa7f2fb6651c2dc3949d21339f4b0042043be7020a34fac37"
+ },
+ "note": "Written before finding_triage.py / bug_patterns.py existed. Run once, at the end, with --split heldout --final.",
+ "sealed_on": "2026-10-09"
+}

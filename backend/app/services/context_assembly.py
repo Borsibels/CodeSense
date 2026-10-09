@@ -41,6 +41,15 @@ OUTLINE_MAX_ENTRIES = 40
 DEPENDENCY_LINE_ITEMS = 10
 MAX_REPORTED_OMISSIONS = 200
 MAX_REPORTED_RANGES = 25
+# Phase 4.5 CODE MAP (explain / overview only): a hard cap, counted inside the context budget.
+CODE_MAP_MAX_TOKENS = 120
+CODE_MAP_MAX_IMPORTS = 4
+CODE_MAP_INTENTS = ("explain", "overview")
+_MAP_KINDS = frozenset({"class", "function", "async_function", "method", "async_method"})
+_KIND_WORDS = {
+    "class": "class", "function": "function", "async_function": "async function",
+    "method": "method", "async_method": "async method",
+}
 
 Range = tuple[int, int]
 
@@ -264,7 +273,80 @@ class ContextAssembler:
             "or OUTLINE are not complete; do not assume anything about code that is not shown."
         )
         lines.extend(self.dependency_lines())
+        lines.extend(self.code_map_lines())
         return "\n".join(lines) + "\n"
+
+    def code_map_lines(self) -> list[str]:
+        """Phase 4.5: the parser's own list of the selected file's classes, functions and imports.
+
+        When the selected file is shown in full its outline is (rightly) dropped, so a 3B model had to infer
+        which methods belong to which class from indentation, and measured on the real model it sometimes
+        credited a function to the wrong class or file. This map states membership exactly, from the Phase 3
+        parser, in at most :data:`CODE_MAP_MAX_TOKENS` estimated tokens. ``explain`` and ``overview`` only:
+        the debug context (and so the measured debug prompt) is untouched.
+        """
+        path = self.selection.target_path
+        if self.request.intent not in CODE_MAP_INTENTS or not path:
+            return []
+        analysis = self.project.analyses[path]
+        file = self.files[path]
+        if file.language not in ("python", "javascript"):
+            return []
+        symbols = [s for s in analysis.symbols if s.kind in _MAP_KINDS]
+        header = f"CODE MAP of {path} ({'Python parser, exact' if analysis.confidence == 'confirmed' else 'JavaScript scanner, heuristic'}):"
+        selected = set(self.selection.target_symbols)
+        family = selected | {s.parent for s in symbols if s.qualified_name in selected and s.parent}
+        family |= {s.qualified_name for s in symbols if s.parent in selected}
+
+        def rank(symbol: Symbol) -> int:
+            if symbol.qualified_name in selected:
+                return 0
+            return 1 if (symbol.qualified_name in family or symbol.parent in family) else 2
+
+        imports = self.map_imports(path)
+        budget = min(CODE_MAP_MAX_TOKENS, self.limit // 6)
+        chosen: list[Symbol] = []
+        for symbol in sorted(symbols, key=lambda s: (rank(s), s.start_line)):
+            trial = sorted([*chosen, symbol], key=lambda s: s.start_line)
+            if self.count(self.render_code_map(header, trial, len(symbols) - len(trial), imports) + "\n") > budget:
+                break
+            chosen = trial
+        if not chosen and not imports:
+            return []
+        text = self.render_code_map(header, chosen, len(symbols) - len(chosen), imports)
+        if self.count(text + "\n") > budget:  # even the header + imports alone do not fit: leave the map out
+            text = self.render_code_map(header, chosen, len(symbols) - len(chosen), [])
+            if self.count(text + "\n") > budget or not chosen:
+                return []
+        return text.split("\n")
+
+    @staticmethod
+    def render_code_map(header: str, symbols: list[Symbol], hidden: int, imports: list[str]) -> str:
+        parts = [f"L{s.start_line}-{s.end_line} {_KIND_WORDS[s.kind]} {s.qualified_name}" for s in symbols]
+        rows = [header]
+        if parts:
+            rows.append("  " + " | ".join(parts) + (f" | (+{hidden} more)" if hidden else ""))
+        if imports:
+            rows.append("  imported: " + "; ".join(imports))
+        return "\n".join(rows)
+
+    def map_imports(self, path: str) -> list[str]:
+        """``name from other/file.py (function, L4-5)`` for names this file imports from another project file."""
+        analysis = self.project.analyses[path]
+        edges = {(e.line, e.target) for e in self.project.graph.edges if e.source == path and e.status == "resolved" and e.target}
+        out: list[str] = []
+        for ref in analysis.references:
+            for line, target in sorted(e for e in edges if e[0] == ref.line):
+                for name in ref.names:
+                    symbol = next(
+                        (s for s in self.project.analyses[target].symbols if s.name == name and s.parent is None and s.kind in _MAP_KINDS),
+                        None,
+                    )
+                    if symbol:
+                        entry = f"{name} from {target} ({_KIND_WORDS[symbol.kind]}, L{symbol.start_line}-{symbol.end_line})"
+                        if entry not in out:
+                            out.append(entry)
+        return out[:CODE_MAP_MAX_IMPORTS]
 
     def dependency_lines(self) -> list[str]:
         project = self.project

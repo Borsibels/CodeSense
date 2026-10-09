@@ -111,6 +111,11 @@ def test_vendored_assets_match_the_recorded_hashes_and_ship_their_licenses():
         "swagger-ui-bundle.js.LICENSE.txt",
     }
     for name, digest in recorded.items():
-        assert hashlib.sha256((STATIC / name).read_bytes()).hexdigest() == digest, f"{name} changed"
+        data = (STATIC / name).read_bytes()
+        if not name.endswith(".png"):
+            # The hashes are of the LF form. On Windows with git's core.autocrlf=true a checkout/rebase rewrites text
+            # assets with CRLF, which is the same content; only the line endings differ.
+            data = data.replace(b"\r\n", b"\n")
+        assert hashlib.sha256(data).hexdigest() == digest, f"{name} changed"
     assert "Apache License" in (STATIC / "LICENSE").read_text(encoding="utf-8")
     assert "swagger-ui-dist" in provenance and "5.33.1" in provenance

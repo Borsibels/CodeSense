@@ -38,7 +38,9 @@ from app.services.context_selection import INTENTS
 from app.services.structured import WORST_CASE_RETRY_REASON, retry_prompt
 from app.services.token_budget import TokenBudget
 
-PROMPT_VERSION = "analysis-v1"
+# analysis-v2 (Phase 4.5): explain/overview wording only (CODE MAP use, scope of the summary, role_in_app limited
+# to the dependency lines). The debug templates are byte-for-byte the analysis-v1 ones (pinned in the tests).
+PROMPT_VERSION = "analysis-v2"
 
 # Space kept free for the sentence the structured generator appends on a retry. Measured with the
 # estimator: realistic maximum-length rejection reasons cost 85-150 estimated tokens.
@@ -116,7 +118,9 @@ _TASK_EXPLAIN_BEGINNER = (
     "Task: Explain the selected code.\n"
     "1. First say what it accomplishes in everyday terms.\n"
     "2. Then walk through what it does, step by step.\n"
-    "3. Say how it helps the rest of the application.\n"
+    '3. In ONE full sentence, say how it helps the rest of the application: name the files that use it or that it uses, '
+    'and what they do with it, taking them only from the "depends on" and "is used by" lines. If neither line is shown, '
+    'write exactly: "Nothing else in this upload uses this file."\n'
     "4. Give an analogy only if it truly matches what the code does; otherwise leave it empty.\n"
     "5. End with ONE programming concept it shows, and what that means.\n"
 )
@@ -124,7 +128,7 @@ _TASK_OVERVIEW_BEGINNER = (
     "Task: Explain what this project does.\n"
     "1. First say what it accomplishes in everyday terms.\n"
     "2. Then go through the main files, one step each, and what each is for.\n"
-    "3. Say how the files work together.\n"
+    "3. Say how the files work together, using only the dependency lines shown.\n"
     "4. Give an analogy only if it truly matches how the project works; otherwise leave it empty.\n"
     "5. End with ONE programming concept it shows, and what that means.\n"
 )
@@ -169,11 +173,22 @@ _DEBUG_AUDIENCE = {
 
 # The reply is grammar-constrained, so the model SEES each JSON key as it writes the value: these
 # lines only need to explain the subtle fields, not restate every key.
+# Phase 4.5: the model sometimes credited a function to the wrong class or file and wrote generic guesses about what
+# the application is for. The CODE MAP (deterministic, from the parser) is in the context; these lines tell it to
+# trust that map and to stay inside the selection.
+_GROUNDING_EXPLAIN = (
+    "Describe only the selected file or symbol. Take which functions belong to which class from the CODE MAP and never "
+    "move one to another class or file.\n"
+)
+_GROUNDING_OVERVIEW = (
+    "Describe only the files shown. Where a CODE MAP is shown, take which functions belong to which class from it.\n"
+)
+
 _FIELDS_BEGINNER = (
     'JSON: summary = what the code accomplishes; analogy = "" if none fits; sections = up to 4 steps, each with '
-    "its file_path, start_line, end_line (0 if none), title, description; role_in_app = how it helps the "
-    "application; concept_name and concept_explanation = the one concept to learn; assumptions = what you could "
-    "not confirm (may be empty).\n"
+    "its file_path, start_line, end_line (0 if none), title, description; role_in_app = that one sentence about the "
+    "application; concept_name and concept_explanation = the one concept to learn; assumptions = what you could not "
+    "confirm (may be empty).\n"
 )
 _FIELDS_TECHNICAL = (
     "JSON: summary = purpose and behavior; sections = up to 4 parts, each with its file_path, start_line, "
@@ -214,12 +229,13 @@ def instructions(intent: str, depth: str, mode: str) -> str:
         fields = _FIELDS_DEBUG_COMPACT if compact else _FIELDS_DEBUG
     else:
         role = _ROLE["explain", style]
+        grounding = _GROUNDING_OVERVIEW if intent == "overview" else _GROUNDING_EXPLAIN
         if depth == "beginner":
             task = _TASK_OVERVIEW_BEGINNER if intent == "overview" else _TASK_EXPLAIN_BEGINNER
-            task += _BEGINNER_STYLE
+            task += grounding + _BEGINNER_STYLE
             fields = _FIELDS_EXPLAIN_COMPACT if compact else _FIELDS_BEGINNER
         else:
-            task = (_TASK_OVERVIEW_TECHNICAL if intent == "overview" else _TASK_EXPLAIN_TECHNICAL)[depth]
+            task = (_TASK_OVERVIEW_TECHNICAL if intent == "overview" else _TASK_EXPLAIN_TECHNICAL)[depth] + grounding
             fields = _FIELDS_EXPLAIN_COMPACT if compact else _FIELDS_TECHNICAL
     return f"{role}{_RULES}{task}{fields}"
 

@@ -67,3 +67,43 @@ def test_definitions_are_short_plain_and_self_contained():
 def test_definitions_for_commonly_confused_words_are_accurate(term, must_contain):
     meaning = next(e.meaning for e in TERMS if e.term == term)
     assert must_contain in meaning
+
+
+# --------------------------------------------------------------------------- #
+# Phase 4.5: words with two meanings define BOTH (measured: "element" was attached to 9 of 15 debug
+# answers, usually where the model meant a list item, but defined only a web-page building block)
+# --------------------------------------------------------------------------- #
+def meaning_of(term):
+    return next(e.meaning for e in TERMS if e.term == term).lower()
+
+
+def test_element_covers_a_list_item_and_a_web_page_building_block():
+    meaning = meaning_of("element")
+    assert "item" in meaning and "list" in meaning
+    assert "web page" in meaning and "button" in meaning
+
+
+def test_attribute_covers_the_python_object_sense_and_the_html_sense():
+    meaning = meaning_of("attribute")
+    assert "object" in meaning and "html" in meaning and "tag" in meaning
+
+
+def test_list_and_class_cover_their_web_senses_too():
+    assert "web page" in meaning_of("list") and "collection" in meaning_of("list")
+    assert "css" in meaning_of("class") and "blueprint" in meaning_of("class")
+
+
+def test_the_entry_attached_for_a_list_item_answer_is_not_only_about_web_pages():
+    shown = dict(find_terms(["Each element is checked."]))
+    assert "item in a list" in shown["element"]
+
+
+def test_list_and_array_are_one_idea_even_though_their_wording_differs():
+    assert len(find_terms(["a list and an array"])) == 1
+    assert [t for t, _ in find_terms(["an array and a list"])] == ["array"]
+
+
+def test_every_group_has_at_least_one_term_and_definitions_stay_within_the_length_limits():
+    for entry in TERMS:
+        assert entry.group
+        assert 20 <= len(entry.meaning) <= 170, entry.term

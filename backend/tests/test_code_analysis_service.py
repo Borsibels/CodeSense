@@ -131,7 +131,7 @@ async def test_beginner_explain_returns_the_plain_english_structure():
     assert out.findings == [] and out.assumptions == ["I did not run it."]
     assert fake.calls[0].model is BeginnerExplainDraft
     assert out.generation.mode == "standard" and out.generation.attempts == 1
-    assert out.generation.model == "qwen2.5-coder:3b" and out.generation.prompt_version == "analysis-v1"
+    assert out.generation.model == "qwen2.5-coder:3b" and out.generation.prompt_version == "analysis-v2"
     assert (out.generation.prompt_eval_count, out.generation.eval_count) == (600, 250)
 
 

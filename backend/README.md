@@ -394,10 +394,13 @@ Every field is labelled in `/docs` as **AI-generated** or **deterministic** (com
 | Field | Source | Meaning |
 |---|---|---|
 | `status`, `notice`, `intent`, `depth`, `target_file`, `target_symbols` | deterministic | `notice` is the fixed "advice, not proof" reminder |
-| `summary` | AI | overview in the requested depth's language |
+| `summary` | AI for `explain`/`overview`; **deterministic for `debug`** (Phase 4.5) | overview in the requested depth's language; for `debug` it is built from `debug_outcome` and `coverage`, and the AI's own debug summary is discarded |
+| `debug_outcome` | deterministic (Phase 4.5) | `debug` only: `no_clear_problem` or `possible_problems`; `null` otherwise. **`no_clear_problem` is not proof that the code is bug-free.** |
+| `pattern_checks[]` | deterministic (Phase 4.5) | `debug` only: hits from a few hand-written rules, each with its `assumptions` (see "Phase 4.5" below) |
+| `relationships[]` | deterministic (Phase 4.5) | `explain`/`overview` only: `{from, to, kind, resolved}` dependency edges from the parsers (`kind`: `uses`, `loads`, `entry_point`) |
 | `analogy`, `role_in_app`, `concept_to_learn {name, explanation}` | AI | `beginner` explain/overview only; otherwise `null` |
 | `explanations[]` | AI text, validated location | ordered steps/parts: `title`, `description`, `file_path`, `start_line`, `end_line`, `location_status`, `location_issue`. Empty for `debug`. |
-| `findings[]` | AI text, validated evidence | `debug` only, at most 3 (see below) |
+| `findings[]` | AI text, validated evidence, deterministic `tier` | `debug` only, at most 3, ordered `possible_problem` first (see below) |
 | `assumptions[]` | AI | what the AI says it could not confirm |
 | `glossary[]` | deterministic | `{term, meaning}`, at most 8: plain-language meanings of common programming words that appear in the AI's text, written by CodeSense. `beginner` depth only. |
 | `limitations[]` | deterministic | what could not be seen or checked (partial files, signature-only files, skipped files, defused control sequences, instruction-like text in the source, compact fallback, the debug caution) |
@@ -420,9 +423,12 @@ A finding:
   "verification": "source_verified",
   "file_path": "cart.py", "start_line": 7, "end_line": 7,
   "evidence": { "source_excerpt": "    for i in range(1, len(prices)):", "excerpt_start_line": 7, "excerpt_end_line": 7, "excerpt_matched": true },
-  "evidence_issue": null
+  "evidence_issue": null,
+  "tier": "possible_problem", "tier_reasons": ["CORROBORATED_BY_RULE"]
 }
 ```
+
+`tier` and `tier_reasons` (Phase 4.5) are deterministic **presentation heuristics, not correctness guarantees**; see "Phase 4.5" below.
 
 **Severity** (`low` | `medium` | `high`) is the AI's qualitative view of the impact *if* the problem is real. **Confidence** (`low` | `medium` | `high`) is the AI's qualitative view of its own claim. It is not a probability and is not calibrated; the backend lowers it (`unsupported` -> `low`, an unmatched quote -> at most `medium`). `category` is one of `logic`, `condition`, `off_by_one`, `variable_usage`, `edge_case`, `null_access`, `api_misuse`, `type_assumption`, `integration`, `other`.
 
@@ -440,7 +446,7 @@ Rules that never bend: line numbers are never clamped, shifted or searched for (
 
 ### Prompt templates and versioning
 
-`app/services/analysis_prompts.py` holds the templates as module constants (never built in routes). `PROMPT_VERSION` (currently `analysis-v1`) is returned in `generation.prompt_version`, and a test pins a digest of every rendered template, so changing a word forces a version bump. Layout: role, short rules, task, audience wording, field guide, then the source between `BEGIN_SOURCE_<nonce>` / `END_SOURCE_<nonce>`, then a reminder *after* the source that it is data, not instructions. There are no few-shot examples (they would cost 200-400 estimated tokens); the reply is constrained to the schema by Ollama's `format`, and the model sees each JSON key as it writes the value.
+`app/services/analysis_prompts.py` holds the templates as module constants (never built in routes). `PROMPT_VERSION` (currently `analysis-v2`; v2 changed only the explain/overview wording, the debug templates are byte-for-byte the v1 ones and are pinned separately) is returned in `generation.prompt_version`, and a test pins a digest of every rendered template, so changing a word forces a version bump. Layout: role, short rules, task, audience wording, field guide, then the source between `BEGIN_SOURCE_<nonce>` / `END_SOURCE_<nonce>`, then a reminder *after* the source that it is data, not instructions. There are no few-shot examples (they would cost 200-400 estimated tokens); the reply is constrained to the schema by Ollama's `format`, and the model sees each JSON key as it writes the value.
 
 **Prompt injection.** Uploaded code is untrusted. Measured on the real tokenizer, `<|im_end|>`, `<|im_start|>`, `<|endoftext|>`, `<|fim_*|>`, `<tool_call>` and `</tool_call>` inside the text become real control tokens, and a file containing a fake system turn made the model answer with the attacker's word. The prompt builder therefore inserts a space into every such sequence (`< |im_end| >`), in file contents *and* file paths, and the evidence check applies the same transform before comparing. This is verified live (`scripts\check_analysis_live.py` prints the token counts: 19 per 20 raw sequences vs 60-120 defused). Delimiters + the trailing reminder + output validation reduce the risk but **cannot remove it**: a model can still be talked into repeating a claim like "this project is secure" in its free-text `summary`, which no validator can fully catch. When instruction-like text or control sequences are found in the source the response says so in `limitations`.
 
@@ -510,12 +516,14 @@ Nothing here uses the network. Only the model call needs Ollama (running locally
 ### Live evaluation (real `qwen2.5-coder:3b`)
 
 ```powershell
-python backend\scripts\check_analysis_live.py --runs 3 --depths beginner            # all 8 fixtures
+python backend\scripts\check_analysis_live.py --runs 3 --depths beginner            # every development fixture
 python backend\scripts\check_analysis_live.py --runs 1 --depths intermediate,advanced
 python backend\scripts\check_analysis_live.py --fixtures off_by_one_py --intent debug --runs 5
+python backend\scripts\check_analysis_live.py --mode inprocess --split dev --intent debug --runs 5 --out dev.json
+python backend\scripts\check_analysis_live.py --rescore dev.json                    # re-score recorded drafts, no model
 ```
 
-It starts a real uvicorn process, sends the controlled fixtures in `tests\analysis_fixtures.py` (Python loop, Python off-by-one, multi-file Python, HTML/CSS/JS, JS logic error, clean code, a partially included project, a prompt-injection project), writes a JSON report outside the repo and prints a table. It also probes the real tokenizer for control-token defusing. Valid JSON is not treated as a correct analysis: explanation correctness and beginner readability are reviewed by a human from the saved responses.
+`--mode http` (default) starts a real uvicorn process and sends real HTTP requests; `--mode inprocess` runs the same application in the harness process and also **captures the model's raw draft** (the API never returns it) so deterministic changes can be re-scored offline with `--rescore`, which replays the drafts through the real `CodeAnalysisService`. Fixtures live in `tests\analysis_fixtures.py` (development) and `tests\heldout_fixtures.py` (sealed, `--split heldout --final`, run once). The harness scores debug findings against planted ground truth by line span and by function, measures the clean-code `no_clear_problem` rate, the corrected jargon rate, relationship and identifier checks, latency, token counts, peak VRAM and backend memory, writes a JSON report outside the repo, and prints tables. It also probes the real tokenizer for control-token defusing. Valid JSON is not treated as a correct analysis: explanation quality additionally needs a human; `--review-sheet` writes a blinded, shuffled review sheet.
 
 ### Known model accuracy limits
 
@@ -531,6 +539,102 @@ Observed on the development machine (Windows 11, RTX 3050 Ti 4 GB, Ollama 0.40.2
 ### Performance (measured, not promised)
 
 56 live requests, one development machine: median total **4.7 s** (beginner 5.7 s, intermediate 3.9 s, advanced 4.4 s), maximum 11.1 s. Per stage, medians: project inspection 1.6 ms, context assembly 2.5 ms, evidence validation 0.7 ms, **model inference 4.6 s**. The model is effectively the whole cost; typical replies are 200-450 generated tokens (maximum observed 693 of 1024). Ingestion cost grows with project size (100 files x 300 lines: 0.29 s; 450 files x 400 lines: 1.8-2.3 s) and stays small next to inference. Output truncation never happened at the real 1024-token limit in these runs. Lowering `OLLAMA_NUM_PREDICT` to provoke it: at 230 the compact fallback succeeded in 5 of 6 requests; at 150 both attempts were cut off and the API answered `502 OUTPUT_TRUNCATED` after exactly two model calls (about 5 s).
+
+## Phase 4.5: fewer false bug reports, better-grounded explanations
+
+Phase 4 measured that a source-verified finding is not a bug: on clean code the model produced a finding in every run and almost all of them cited real lines. Phase 4.5 keeps the single model call and the **unchanged debug prompt** (three redesigned debug prompts were tried on the real model; each cut false positives only by losing real bugs; the byte-for-byte digest of the debug templates is pinned in `tests/test_analysis_prompts.py`) and adds deterministic layers **after** the model call. No second model call, no extra model, no new dependency, no network.
+
+### What was added
+
+| Piece | Where | What it does |
+|---|---|---|
+| Finding tiers | `app/services/finding_triage.py` | Sorts findings into `possible_problem` (first) and `worth_checking`. **A presentation heuristic, not a correctness guarantee. Demoted findings are never removed or edited.** |
+| Deterministic outcome and summary | `finding_triage.py` | `debug_outcome` is `no_clear_problem` or `possible_problems`. The debug `summary` is built from it plus the real coverage; the AI's own debug summary is discarded. |
+| Bug-pattern rules | `app/services/bug_patterns.py` | A few rules found with `ast` (Python) and the Phase 3 token stream (JavaScript), each stating the assumptions it needs. Reported separately as `pattern_checks`, never mixed into the AI `findings`, never sent to the model. |
+| CODE MAP | `app/services/context_assembly.py` | `explain`/`overview` only: the parser's exact list of the selected file's classes, methods, functions and cross-file imports, at most 120 estimated tokens, counted inside the context budget. Debug context has none. |
+| Dependency `relationships` | `code_analysis_service.py` | `explain`/`overview` only: graph edges `{from, to, kind, resolved}` from the parsers. |
+| Prompt `analysis-v2` | `analysis_prompts.py` | Explain/overview only: use the CODE MAP, describe only the selection, and write `role_in_app` as one sentence grounded in the dependency lines (or the fixed sentence "Nothing else in this upload uses this file."). |
+| Glossary | `glossary.py` | Words with two meanings (`element`, `attribute`, `list`, `class`) define both senses. |
+
+### Tiers and reason codes
+
+`tier` and `tier_reasons` on each finding. A finding is a `possible_problem` when its citation was verified, the cited lines are not an example block, and the claim is not about unseen input; or when an independent rule fired on the same lines. Otherwise it is `worth_checking`.
+
+| Reason | Effect | Meaning |
+|---|---|---|
+| `QUOTE_NOT_MATCHED` | demotes | the place is real but the AI's quoted code does not match it |
+| `LOCATION_NOT_VERIFIED` | demotes | the AI pointed at a place that does not exist or that it was not shown |
+| `IN_DEMO_CODE` | demotes | the lines are inside an `if __name__ == "__main__":` block (found from the Python AST) |
+| `INPUT_ASSUMPTION` | demotes | the title or first 90 characters of the problem is about empty / missing / unexpected input, validation, edge cases or division by zero. **This is a brittle wording heuristic**; a genuine missing input check is a real kind of bug and is demoted, not hidden. |
+| `CORROBORATED_BY_RULE` | promotes | a `pattern_checks` rule fired on the same lines (overrides the demoting reasons, which stay listed) |
+
+`debug_outcome` is `possible_problems` only if a `possible_problem` finding or a `problem_if_assumptions_hold` pattern check exists. **`no_clear_problem` always says in words that the examined code has not been proven bug-free**; the summary also states exactly which lines the AI saw and how many files it did not.
+
+### Pattern checks (hand-written, high-precision, assumption-stating)
+
+| Rule | Strength | Assumes |
+|---|---|---|
+| `PY_INDEX_PAST_END`: `for i in range(len(x) + k)` reading `x[i]` | problem if assumptions hold | `x` is a list/tuple/string; the loop is not left early (skipped when guarded by a length test, a `try/except IndexError`, or when `x` is resized in the loop) |
+| `PY_SKIPS_FIRST_ITEM`: `range(1, len(x))` reading `x[i]` | worth checking | the loop should visit every item (skipped for `best = x[0]` idioms, neighbour reads like `t[i - 1]`, and loops that fill another table) |
+| `PY_IS_LITERAL`: `is` / `is not` against a string or number literal | problem if assumptions hold | the intent was equality |
+| `PY_MUTABLE_DEFAULT`: a default list/dict/set changed by a method call (`items.append(x)`) or `+=` | problem if assumptions hold | called more than once without that argument; sharing is not a deliberate cache |
+| `PY_SYNTAX_ERROR`: Python cannot read the file | problem if assumptions hold | the file is meant to be Python 3 for this server's Python |
+| `JS_INDEX_PAST_END`: `for (...; i <= x.length; i++)` reading `x[i]` | problem if assumptions hold | `x` is an array/string; the loop is not left early |
+| `JS_ASSIGN_IN_CONDITION`: `if (x = 5)`, a **constant** assigned in an `if` | problem if assumptions hold | the `=` is a typo for `===` |
+| `JS_NAN_COMPARE`: `x === NaN`, `x != NaN`, ... | problem if assumptions hold | the intent was to detect NaN |
+| `MISSING_LOCAL_FILE`: a local script/stylesheet/import not in the upload | worth checking | the upload is the whole project; no build step creates the file |
+
+Every hit carries its assumptions (always shown with it), whether it was found with Python's parser (`confirmed`) or the lightweight JavaScript scanner (`heuristic`), a backend-copied source excerpt, and whether the AI was shown those lines (`shown_to_ai`; a rule reads the whole selected file or symbol, so it can flag lines the AI never saw). **A rule hit is never presented as a definite defect.** Intent-dependent bugs (a flipped comparison, a wrong formula, `> 18` where the comment says "18 or older") are deliberately not detected: no structural rule can know the intent, and a rule for them would only overfit the fixtures.
+
+**Precision gate.** Each rule has positive and negative tests and must not fire on the clean fixtures or on this backend's own code (`tests/test_bug_patterns.py`). Two rules were narrowed after a sweep over real code, because their first versions fired on deliberate idioms: a default dict written as a cache (`cache[key] = value`, 4 hits in the Python standard library) and `if (match = re.exec(s))` (19 of 19 hits in `node_modules`). After narrowing: 0 false alarms over 1,600 standard-library files (902k lines), 1,899 JavaScript files in `node_modules` (222k lines) and this backend; the one standard-library hit is a file that is deliberately invalid Python.
+
+### Explain and overview
+
+`relationships` (above) and the CODE MAP come from the parsers, so the AI is told which methods belong to which class and which files use the selected file, instead of inferring them. The AI still writes the prose and can still be wrong; see the measured results and limits below.
+
+### Measured results (real `qwen2.5-coder:3b`, one development machine, small samples)
+
+All numbers are exploratory: 5 runs per fixture, fixtures written by the team, and the model's output varies run to run. **Development-fixture numbers are in-sample** (the triage wording was tuned looking at that kind of code). The sealed held-out numbers were produced once, after all tuning, and are the more honest estimate, but the held-out fixtures were also written by the implementing agent (three clean ones are verbatim CPython standard-library excerpts), so they are not an independent benchmark.
+
+| Debug, clean code | Phase 4 behaviour | Phase 4.5 `no_clear_problem` | Non-bug items in the top tier per run |
+|---|---|---|---|
+| Development, 35 clean runs (in-sample) | 0/35 | **23/35 (66%)**, 95% CI 49-79% | 0.34 |
+| Development, plain clean fixtures only (25 runs) | 0/25 | 22/25 (88%) | 0.12 |
+| **Sealed held-out, 25 clean runs** | 0/25 | **13/25 (52%)**, 95% CI 33-70% | **0.60** |
+
+* Targets: >=60% in-sample (met), >=50% held-out (met by a thin margin, interval wide), <=0.5 non-bug items per clean run (met in-sample, **missed held-out: 0.60**).
+* Held-out per fixture: `ho_colors` 4/5, `ho_cart_js` 4/5, `ho_filter` 2/5, `ho_inventory` 2/5, `ho_search` 1/5. The false claims that still reach the top tier on held-out code are mostly labelled `off_by_one` (12 of 15), not the "empty/None input" claims the wording heuristic recognises: that heuristic is tuned to failure modes of tiny code, and generalises only partly.
+* Two kinds of clean file defeat triage by design: code whose comment asks for a false report (`clean_injection`, 0/5) and code whose intent is unknowable (`ambiguous_slice`, 1/5 abstained, i.e. 4/5 overclaims).
+* Of the findings placed in the top tier, 15 of 36 (development) and 12 of 45 (held-out) were the planted bug. The top tier is a priority list, not a list of bugs.
+
+| Debug, real bugs | Result |
+|---|---|
+| Citation recall, the 5 development fixtures that have a Phase 4 baseline | 15/25 (60%) vs 12/20 (60%) from the recorded Phase 4 drafts; every cited bug was in the top tier |
+| Why recall cannot fall | All 48 debug prompts (24 fixtures x 2 depths) built by the pre-change code and by the current code are byte-for-byte identical, and triage never removes or edits a finding |
+| Held-out bugs | 10/20 cited (`ho_scores_js` 5/5 and `ho_tags` 5/5, both with a rule hit; the mutated `bisect` and the floor-division paging bug 0/5, as intent-dependent bugs always were) |
+| Real bug demoted by wording | 1 of the 39 live runs in which the planted bug was cited (`cross_file_call`, described as a "null check"; still shown, with `INPUT_ASSUMPTION`) |
+| Reassurance risk | On buggy files, `no_clear_problem` came out in 15/35 development runs and 1/20 held-out runs. In none of them had the model cited the bug (so Phase 4 would have shown 23 unrelated findings there too), and the summary says it is not proof, but a user can still be falsely reassured. |
+
+Structural: 188 live requests (development, held-out, real-socket HTTP, all three depths), 188 HTTP 200, 188 schema-valid, 0 retries, 0 compact fallbacks, 0 truncations, 0 `unsupported` findings of 271, 0 prompt-injection leaks; control tokens still defused on the real tokenizer.
+
+Latency (median / p90 / max, seconds): development debug 4.0 / 9.0 / 13.2 (the first call includes model load); real-socket debug 3.7 / 8.6 / 10.3; explain 5.3 / 6.2 / 7.9; overview 5.6. **Held-out debug median 7.9 s (target 5.5 s): missed**, because those files are longer real code and the model wrote a median 542 tokens instead of 255. The new deterministic layers cost a median 2.2 ms (maximum 57 ms). Peak VRAM 3.2 GiB of 4 GiB (the model is resident); backend memory about 69 MiB.
+
+Explain v2, a same-day control (Phase 4 prompt and context vs `analysis-v2`, 15 answers each on `simple_loop`, `multi_file_py`, `partial_project`; deterministic checks, not a blind human review):
+
+| | Phase 4 prompt | `analysis-v2` |
+|---|---|---|
+| `role_in_app` that is a useful, grounded sentence | 10/15 | **15/15** |
+| `role_in_app` that is generic speculation | 5/15 | 0/15 |
+| `cart.py` summary credits another file's formatting to it | 2/5 | 0/5 |
+| relationship contradictions / invented identifiers | 0 / 0 | 0 / 0.07 per answer |
+| undefined technical words per 100 words (corrected metric) | **7.05** | 8.13 (**worse**) |
+| median latency | 5.3 s | 5.8 s |
+
+The first wording of the role instruction made the model copy the dependency lines (`depends on: None`); that was found by reading the answers, fixed, and is why the instruction now asks for one full sentence. The jargon target (-20%) was **not** met; the CODE MAP's "class/method/function" vocabulary is the suspected cause (not tested). 98% of the remaining undefined technical words are covered by the glossary entry shown next to the answer. The corrected jargon metric no longer counts "list", "loop" or "return" as jargon (Phase 4's headline was inflated by "list"); the Phase 4 baseline re-measured with it is 7.3 per 100 words.
+
+### How the evaluation works
+
+`scripts\check_analysis_live.py` (see "Live evaluation") scores debug findings against planted ground truth by line span and by function, and records the model's raw drafts in `--mode inprocess` so triage, rule and glossary changes can be re-scored offline (`--rescore`, `--rescore-baseline`) by replaying them through the real service. Fixtures: `tests/analysis_fixtures.py` (development, which the heuristics WERE tuned against, so results on them are in-sample) and `tests/heldout_fixtures.py` (sealed, hash-pinned in `tests/data/heldout_manifest.json`, run once with `--split heldout --final`).
 
 ## Token-aware context budgeting
 

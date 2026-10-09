@@ -113,6 +113,8 @@ async def test_response_is_flat_and_every_top_level_field_is_present(api_factory
     assert set(body) == {
         "status", "notice", "intent", "depth", "target_file", "target_symbols", "summary", "analogy", "explanations",
         "role_in_app", "concept_to_learn", "findings", "assumptions", "glossary", "limitations", "coverage", "generation", "timings_ms",
+        # Phase 4.5, additive and approved: debug_outcome, pattern_checks, relationships.
+        "debug_outcome", "pattern_checks", "relationships",
     }
     assert "analysis" not in body
 

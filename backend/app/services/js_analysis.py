@@ -274,6 +274,17 @@ def _match_brackets(tokens: list[Token], diagnostics: list[Diagnostic]) -> dict[
     return match
 
 
+def match_brackets(tokens: list[Token]) -> tuple[dict[int, int], bool]:
+    """Public wrapper for rule modules: ``(opener index -> closer index, balanced)``.
+
+    ``balanced`` is False when the scanner met brackets that do not pair up (often JSX or a regex it
+    misread); callers that need certainty should then skip the file.
+    """
+    problems: list[Diagnostic] = []
+    pairs = _match_brackets(tokens, problems)
+    return pairs, not problems
+
+
 class _Extractor:
     def __init__(self, file: ProjectFile, scan: _Scan) -> None:
         self.file = file

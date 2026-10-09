@@ -62,6 +62,19 @@ EvidenceIssue = Literal[
     "NO_EXCERPT",
 ]
 
+# ---- Phase 4.5 (presentation only; none of these says a bug is real) ------------------------------ #
+Tier = Literal["possible_problem", "worth_checking"]
+TierReason = Literal[
+    "QUOTE_NOT_MATCHED",  # demoting: the location is real but the AI's quoted code does not match it
+    "LOCATION_NOT_VERIFIED",  # demoting: the AI's location is invalid, so there is no evidence to look at
+    "IN_DEMO_CODE",  # demoting: the cited lines are an example block that only runs when the file is run directly
+    "INPUT_ASSUMPTION",  # demoting: the claim is about inputs the code was never shown receiving
+    "CORROBORATED_BY_RULE",  # promoting: an independent deterministic rule fired on the same lines
+]
+DebugOutcome = Literal["no_clear_problem", "possible_problems"]
+PatternStrength = Literal["problem_if_assumptions_hold", "worth_checking"]
+RelationshipKind = Literal["uses", "loads", "entry_point"]
+
 MAX_FINDINGS = 3
 MAX_SECTIONS = 4
 MAX_EVIDENCE_CHARS = 140
@@ -286,7 +299,7 @@ class EvidenceOut(_Out):
 
 
 class FindingOut(_Out):
-    id: str = Field(description="Deterministic: F1, F2, ... assigned after validation.")
+    id: str = Field(description="Deterministic: F1, F2, ... assigned after validation and triage, in display order.")
     title: str = Field(description="AI-generated.")
     category: Category = Field(description="AI-generated.")
     problem: str = Field(description="AI-generated: what may be wrong, in the requested depth's language. A suspicion, not a proven bug.")
@@ -311,6 +324,65 @@ class FindingOut(_Out):
     end_line: int | None = None
     evidence: EvidenceOut | None = None
     evidence_issue: EvidenceIssue | None = Field(None, description="Deterministic. Why the finding is not `source_verified`.")
+    tier: Tier = Field(
+        "worth_checking",
+        description=(
+            "Deterministic presentation heuristic, NOT a correctness guarantee. `possible_problem`: shown first; the cited code "
+            "was verified and nothing marked it as demo code or as a claim about unseen input, or an independent rule "
+            "corroborated it. `worth_checking`: a note, shown after the possible problems; it is demoted, never hidden, and may "
+            "still be a real bug (for example a genuine missing input check)."
+        ),
+    )
+    tier_reasons: list[TierReason] = Field(
+        default_factory=list,
+        description=(
+            "Deterministic. Why the tier was chosen. Demoting reasons: QUOTE_NOT_MATCHED, LOCATION_NOT_VERIFIED, IN_DEMO_CODE, "
+            "INPUT_ASSUMPTION. Promoting: CORROBORATED_BY_RULE. May be listed even when the finding stayed a possible problem "
+            "(corroboration overrides the demoting reasons)."
+        ),
+    )
+
+
+class PatternCheckOut(_Out):
+    """A deterministic rule hit (``bug_patterns.py``). Not AI-generated, and not proof of a bug."""
+
+    id: str = Field(description="Deterministic: P1, P2, ...")
+    rule: str = Field(description="Deterministic: stable rule identifier, e.g. PY_INDEX_PAST_END.")
+    strength: PatternStrength = Field(
+        description=(
+            "Deterministic. `problem_if_assumptions_hold`: this is a mistake PROVIDED every assumption listed below is true. "
+            "`worth_checking`: suspicious, but it depends on what the author intended."
+        )
+    )
+    title: str
+    explanation: str = Field(description="Deterministic, written for the requested depth.")
+    assumptions: list[str] = Field(description="Deterministic: what must be true for this to be a real problem. Always shown with the hit.")
+    parser: Literal["confirmed", "heuristic"] = Field(
+        description="`confirmed`: found with Python's own parser. `heuristic`: found with CodeSense's lightweight JavaScript scanner."
+    )
+    file_path: str
+    start_line: int
+    end_line: int
+    source_excerpt: str = Field(description="Deterministic: lines copied by the backend from the uploaded file (at most 15).")
+    excerpt_start_line: int
+    shown_to_ai: bool = Field(description="Deterministic: whether these lines were part of what the AI was shown.")
+    corroborates: list[str] = Field(default_factory=list, description="Deterministic: ids of AI findings on the same lines.")
+
+
+class RelationshipOut(BaseModel):
+    """A dependency-graph edge (mirrors the frontend's ``Relationship``). Deterministic, from the parsers: never the AI."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    from_: str = Field(alias="from", description="The file that refers to `to`.")
+    to: str = Field(description="The project file it refers to, or the unresolved reference as written.")
+    kind: RelationshipKind = Field(
+        description=(
+            "`uses`: imports or requires. `loads`: a script, stylesheet or asset reference. `entry_point`: marks `from` as a "
+            "heuristic entry point (`to` equals `from`). A file's users are the edges whose `to` is that file."
+        )
+    )
+    resolved: bool = Field(description="False when the reference does not match a file in the upload.")
 
 
 class PartialFileOut(_Out):
@@ -360,7 +432,28 @@ class AnalysisResponse(_Out):
     depth: Depth
     target_file: str | None = None
     target_symbols: list[str] = []
-    summary: str = Field(description="AI-generated overview in the requested depth's language.")
+    summary: str = Field(
+        description=(
+            "`explain`/`overview`: AI-generated overview in the requested depth's language. `debug`: DETERMINISTIC (built from "
+            "`debug_outcome` and `coverage`); the AI's own debug summary is discarded because it contradicted its findings."
+        )
+    )
+    debug_outcome: DebugOutcome | None = Field(
+        None,
+        description=(
+            "Deterministic, `debug` only. `no_clear_problem`: no finding reached the `possible_problem` tier and no rule found a "
+            "problem in the code examined. This is NOT proof that the code is bug-free. `possible_problems`: at least one "
+            "`possible_problem` finding or one `problem_if_assumptions_hold` pattern check exists."
+        ),
+    )
+    pattern_checks: list[PatternCheckOut] = Field(
+        default_factory=list,
+        description="Deterministic, `debug` only: hits from a few hand-written rules, each with its assumptions. Not AI output.",
+    )
+    relationships: list[RelationshipOut] = Field(
+        default_factory=list,
+        description="Deterministic, `explain`/`overview` only: dependency edges around the selected file, from the project's parsers.",
+    )
     analogy: str | None = Field(None, description="AI-generated, `beginner` explain/overview only: an everyday comparison. Optional and imperfect.")
     explanations: list[ExplanationOut] = Field(description="AI-generated, in order (step by step). Empty for `debug`.")
     role_in_app: str | None = Field(None, description="AI-generated, `beginner` explain/overview only.")

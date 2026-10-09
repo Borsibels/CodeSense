@@ -42,13 +42,28 @@ COMBOS = list(itertools.product(INTENTS, DEPTHS, MODES))
 # --------------------------------------------------------------------------- #
 # If this fails you changed prompt text. Bump PROMPT_VERSION (analysis-vN -> analysis-vN+1) and
 # update the digest below, and re-run the live evaluation: prompt wording changes model behavior.
-EXPECTED_VERSION = "analysis-v1"
-EXPECTED_DIGEST = "371c1d7f4c94aeaf8aaeccabc02ce0ee7e85e4f633572721cc00c9600749e299"
+EXPECTED_VERSION = "analysis-v2"  # v1 -> v2 in Phase 4.5: explain/overview wording only (the debug digest below is unchanged)
+EXPECTED_DIGEST = "f22e3b7654fb699092cd1418b2e282f3befebdc2cf6ea287861edc6cf67803b7"
 
 
 def template_digest() -> str:
     text = "\n=====\n".join(instructions(*combo) for combo in COMBOS)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+# Phase 4.5 kept the debug prompt EXACTLY as Phase 4 measured it: three redesigned debug prompts were tried on
+# the real model and each cut false positives only by losing real bugs. The debug templates are pinned on their
+# own so that a change to the explain/overview wording can never change them by accident.
+EXPECTED_DEBUG_DIGEST = "ea8964f35e0bc53f1d6fd68fbd6ffdb83f0f9a87e78cf24120d503b4f6a7cf34"
+
+
+def debug_digest() -> str:
+    text = "\n=====\n".join(instructions(*combo) for combo in COMBOS if combo[0] == "debug")
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def test_the_debug_templates_are_byte_for_byte_the_phase_4_ones():
+    assert debug_digest() == EXPECTED_DEBUG_DIGEST, "the debug prompt changed: Phase 4.5 deliberately keeps it as measured"
 
 
 def test_prompt_version_is_pinned_to_the_template_text():
@@ -170,6 +185,44 @@ def test_debug_asks_for_the_quote_before_the_line_numbers_with_the_margin_number
     text = instructions("debug", "beginner", "standard")
     assert text.index("evidence") < text.index("then start_line and end_line")
     assert "left-margin number" in text
+
+
+# --------------------------------------------------------------------------- #
+# Phase 4.5 explain/overview grounding (analysis-v2)
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("depth", DEPTHS)
+def test_explain_is_told_to_stay_inside_the_selection_and_trust_the_code_map(depth, mode):
+    text = instructions("explain", depth, mode)
+    assert "Describe only the selected file or symbol" in text
+    assert "CODE MAP" in text and "never move one to another class or file" in text
+
+
+@pytest.mark.parametrize("depth", DEPTHS)
+def test_overview_is_told_to_describe_only_the_files_shown(depth):
+    text = instructions("overview", depth, "standard")
+    assert "Describe only the files shown" in text and "CODE MAP" in text
+
+
+def test_beginner_role_in_app_is_one_full_sentence_grounded_in_the_dependency_lines():
+    text = instructions("explain", "beginner", "standard")
+    assert '"depends on" and "is used by"' in text
+    assert "In ONE full sentence" in text  # measured: telling the model to use ONLY those lines made it echo them
+    assert '"Nothing else in this upload uses this file."' in text  # the exact sentence when nothing is connected
+    assert "role_in_app = that one sentence" in text
+    assert "how it helps the rest of the application" in text  # the Phase 4 structure is kept
+    assert "only as far as the dependency lines show" not in text and "using ONLY" not in text
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("depth", DEPTHS)
+def test_the_debug_templates_know_nothing_about_the_code_map_or_the_new_rules(depth, mode):
+    text = instructions("debug", depth, mode)
+    assert "CODE MAP" not in text and "Describe only" not in text and "dependency lines" not in text
+
+
+def test_the_largest_template_stays_within_the_phase_4_5_budget():
+    assert max_template_tokens(BUDGET) <= 960  # Phase 4: 907; Phase 4.5 target: <= 960
 
 
 # --------------------------------------------------------------------------- #
