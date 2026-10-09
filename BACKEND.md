@@ -42,6 +42,7 @@ do not. Use `/openapi.json` as the offline machine-readable API specification.
 |---|---|---|
 | GET | `/api/health` | Backend status and live local model readiness |
 | POST | `/api/projects/upload` | Multipart `file`: project ZIP |
+| POST | `/api/projects/files` | Repeated multipart `files`, JSON-list string `paths`, optional display `name`: source files or folder |
 | POST | `/api/projects/snippet` | JSON `code`, `language`, optional `filename` |
 | GET | `/api/projects/{id}` | Metadata, files and static relationships |
 | GET | `/api/projects/{id}/files` | Indexed files, statuses and reasons |

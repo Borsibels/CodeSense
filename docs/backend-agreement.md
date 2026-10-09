@@ -35,6 +35,15 @@ Record exceptions at the end; avoid silently changing field names in individual 
 with project metadata. Unsupported files are listed as skipped; no eligible source
 files results in 422. Archives are never extracted or executed.
 
+`POST /api/projects/files` accepts repeated multipart `files`, a `paths` field containing
+a JSON list of corresponding relative paths, and an optional display `name`.
+Use base filenames for standalone files and browser `webkitRelativePath` values for
+folders. Returns the same 201 project metadata as ZIP upload. The backend validates
+paths, rejects duplicates, caps the combined input at 10 MiB and 1,000 files, and
+applies the same exclusions, source limits, parsers, and indexing as ZIP ingestion.
+The frontend excludes dependency/generated directories and `.env` files before
+transmitting folder contents; server exclusions still apply independently.
+
 `POST /api/projects/snippet` accepts:
 
 ```json

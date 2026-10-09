@@ -20,7 +20,9 @@ For frontend development, keep the backend running and run `npm run dev` in anot
 
 ## What works
 
-Upload a ZIP (maximum 10 MB), browse its eligible Python, JavaScript, HTML, and CSS files, inspect relationships and skipped-file reasons, and request explanations of a project, a file, or selected lines. Explanation references open the corresponding file and highlight its original lines.
+Choose ZIP archive, Files, Folder, or Paste code in Workspace. ZIPs and file/folder uploads are limited to 10 MB; pasted code and individual source files are limited to 100 KB. Folder selection preserves relative paths and excludes dependency/generated directories and `.env` files before upload. Choose folders with the picker; dragging folders is not supported. Files accepts one or several Python, JavaScript, HTML, or CSS files. Paste code provides a language selector and filename.
+
+Browse eligible source files, inspect relationships and skipped-file reasons, and request explanations of a project, a file, or selected lines. All input modes share the same backend indexing, source limits, and debugging workflow. Explanation references open the corresponding file and highlight its original lines.
 
 Practice uses curated exercises matched to project concepts where available, with an explicit general-exercise fallback. Edit the starter code, check the answer, reveal hints one at a time, and explicitly reveal a reference solution. Verification checks constrained source structure; it does not execute code or prove general correctness.
 

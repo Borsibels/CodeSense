@@ -6,6 +6,8 @@
 |---|---|
 | Setup / connection status | `GET /api/health` |
 | Upload project | `POST /api/projects/upload` with multipart `file` |
+| Upload source files / folder | `POST /api/projects/files` with repeated multipart `files`, JSON `paths`, and display `name` |
+| Paste code | `POST /api/projects/snippet` with `code`, `language`, and `filename` |
 | Select source file | `GET /api/projects/{project_id}/files/{file_id}` |
 | Explain project/file/selection | `POST /api/analyze` with scope `project`, `file`, or `block` |
 | Start/load exercise | `POST /api/challenges/select` |

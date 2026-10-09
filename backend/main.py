@@ -1,13 +1,16 @@
 import asyncio
+import io
+import json
+import zipfile
 from pathlib import Path
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from .ai import OllamaExplainer, UnconfiguredExplainer, ExplainerUnavailable, validate_explanation
 from .models import Project, SnippetRequest, ContextRequest, ExplanationContext, Explanation
-from .projects import MAX_UPLOAD, ProjectError, ingest_archive, ingest_snippet, store, select_context
+from .projects import MAX_UPLOAD, MAX_ENTRIES, safe_path, ProjectError, ingest_archive, ingest_snippet, store, select_context
 from .middleware import BodyLimitMiddleware
 from .challenges import ChallengeEngine, ChallengeSelect, ChallengeSubmit
 
@@ -57,6 +60,37 @@ def create_app(explainer=None, inference_timeout=90):
     @app.post('/api/projects/snippet', response_model=Project, status_code=201)
     def snippet(body: SnippetRequest):
         return ingest_snippet(body.code, body.language, body.filename)
+
+    @app.post('/api/projects/files', response_model=Project, status_code=201)
+    def upload_files(files: list[UploadFile] = File(...), paths: str = Form(...), name: str = Form('Uploaded files')):
+        try:
+            try:
+                names = json.loads(paths)
+            except (ValueError, TypeError):
+                raise ProjectError('Provide a JSON list of relative source paths.')
+            if not isinstance(names, list) or len(names) != len(files) or not all(isinstance(p, str) for p in names):
+                raise ProjectError('Each uploaded file must have one relative path.')
+            if not files or len(files) > MAX_ENTRIES:
+                raise ProjectError('Choose between 1 and 1000 files.')
+            buffer = io.BytesIO()
+            total = 0
+            seen = set()
+            with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+                for file, path in zip(files, names):
+                    path = safe_path(path)
+                    if path.casefold() in seen:
+                        raise ProjectError('Files contain duplicate or case-colliding paths.')
+                    seen.add(path.casefold())
+                    raw = file.file.read(MAX_UPLOAD - total + 1)
+                    total += len(raw)
+                    if total > MAX_UPLOAD:
+                        raise ProjectError('Files exceed the 10 MB combined upload limit.')
+                    archive.writestr(path, raw)
+            # All input modes share the same exclusions, parser, indexing and resource limits.
+            return ingest_archive(buffer.getvalue(), name[:200] or 'Uploaded files')
+        finally:
+            for file in files:
+                file.file.close()
 
     @app.get('/api/projects/{project_id}', response_model=Project)
     def project(project_id: str):
