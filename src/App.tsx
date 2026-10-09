@@ -16,6 +16,6 @@ export default function App() {
       {screen === "debug" && <DebugScreen view={view} />}
     </Shell>
     {setup && <SetupDrawer view={view} onClose={() => setSetup(false)} />}
-    <label className="dev">Preview state <select value={view} onChange={e => setView(e.target.value as ViewState)}><option value="empty">Empty</option><option value="loading">Loading (skeleton)</option><option value="error">Error</option></select></label>
+    <label className="dev">UI preview <select value={view} onChange={e => setView(e.target.value as ViewState)}><option value="empty">Empty</option><option value="loading">Loading (skeleton)</option><option value="error">Error</option></select></label>
   </>;
 }
