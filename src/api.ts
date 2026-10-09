@@ -9,8 +9,8 @@ export interface Health { backend: string; ai: { status: string; model: string |
 export type Scope = 'project' | 'file' | 'block';
 export interface AnalysisRequest { project_id: string; scope: Scope; file_id?: string; start_line?: number; end_line?: number; difficulty: Difficulty }
 export interface Explanation { summary: string; sections: { title: string; explanation: string; file_id: string; start_line: number; end_line: number }[]; concepts: string[]; limitations: string[] }
-export interface Exercise { id: string; title: string; objective: string; language: Language; difficulty: Difficulty; concepts: string[]; starter_code: string; hint_count: number; verification_policy: string }
-export interface ChallengeSelection { status: 'selected' | 'no_match'; challenge: Exercise | null; match?: { kind: 'concept' | 'general'; concepts: string[] }; reason?: string }
+export interface Exercise { id: string; title: string; objective: string; language: Language; difficulty: Difficulty; concepts: string[]; starter_code: string; hint_count: number; verification_policy: string; origin?: 'ai_missing_line'; source_path?: string; missing_line?: number }
+export interface ChallengeSelection { status: 'selected' | 'no_match'; challenge: Exercise | null; match?: { kind: 'concept' | 'general' | 'source'; concepts: string[] }; reason?: string }
 export interface Verification { correct: boolean; feedback: string; limitations: string[] }
 
 export class ApiError extends Error {

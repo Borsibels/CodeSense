@@ -13,6 +13,7 @@ from .models import Project, SnippetRequest, ContextRequest, ExplanationContext,
 from .projects import MAX_UPLOAD, MAX_ENTRIES, safe_path, ProjectError, ingest_archive, ingest_snippet, store, select_context
 from .middleware import BodyLimitMiddleware
 from .challenges import ChallengeEngine, ChallengeSelect, ChallengeSubmit
+from .missing_line import generate as generate_missing_line
 
 def create_app(explainer=None, inference_timeout=90):
     app = FastAPI(title='CodeSense Backend', version='0.2.0')
@@ -172,6 +173,24 @@ def create_app(explainer=None, inference_timeout=90):
     @app.post('/api/challenges/submit')
     def challenge_submit(body: ChallengeSubmit):
         return app.state.challenges.submit(body)
+
+    @app.post('/api/challenges/generate')
+    async def challenge_generate(body: ChallengeSelect):
+        if app.state.generation_lock.locked():
+            raise HTTPException(429, 'Local AI is busy. Wait for the current request to finish.')
+        async with app.state.generation_lock:
+            try:
+                return await asyncio.wait_for(generate_missing_line(app.state.explainer, app.state.challenges, body), timeout=inference_timeout)
+            except ProjectError:
+                raise
+            except ExplainerUnavailable as exc:
+                raise HTTPException(503, str(exc)) from exc
+            except TimeoutError as exc:
+                raise HTTPException(504, 'Local challenge generation timed out.') from exc
+            except (ValidationError, ValueError, TypeError) as exc:
+                raise HTTPException(502, 'AI challenge failed source-line or hint validation. Try generating again.') from exc
+            except Exception as exc:
+                raise HTTPException(502, 'Local challenge generation failed.') from exc
 
     @app.get('/api/challenges/{challenge_id}/hints/{level}')
     def hints(challenge_id: str, level: int):

@@ -134,3 +134,7 @@ correctness. Progressive hints and solution reveal are driven by explicit UI act
 Backend application logic is implemented. Real model performance/accuracy, frontend
 integration, and a full application restart with Wi-Fi disabled are still acceptance
 checks on the demo setup. Read `docs/backend-agreement.md` before changing schemas.
+
+## AI missing-line challenge
+
+`POST /api/challenges/generate` accepts `project_id`, optional `file_id`, and `difficulty`. The local Ollama adapter selects one validated line from a bounded source excerpt and supplies three progressive hints. Source files must parse and fit the 9 KB exercise limit. The original uploaded source is unchanged; the challenge contains a placeholder copy, and the original becomes the structural answer key. Hints and solutions use the existing reveal endpoints. No AI service means 503, with no curated fallback in the guided frontend. Generation quality still needs review with the live model.
