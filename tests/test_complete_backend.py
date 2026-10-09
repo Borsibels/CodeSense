@@ -93,8 +93,8 @@ class FullBackendTests(unittest.TestCase):
     def test_model_prompt_is_bounded(self):
         project = ingest_snippet('x=1\n'*1000,'python','long.py')
         context = select_context(ContextRequest(project_id=project.id,file_id=project.files[0].file_id))
-        messages, _, bounded = build_prompt(context)
-        self.assertLessEqual(sum(len(m['content'].encode()) for m in messages),2800)
+        messages, schema, bounded = build_prompt(context)
+        self.assertLessEqual(len(json.dumps({'messages': messages, 'format': schema}, ensure_ascii=False).encode('utf-8')),6000)
         self.assertTrue(bounded.truncated)
         self.assertEqual(bounded.selected.end_line,len(bounded.selected.code.splitlines()))
 
@@ -104,7 +104,7 @@ class FullBackendTests(unittest.TestCase):
                 return httpx.Response(200,json={'models':[{'name':'qwen2.5-coder:3b'}]})
             payload = json.loads(request.content)
             self.assertEqual(str(request.url),'http://127.0.0.1:11434/api/chat')
-            self.assertEqual(payload['options']['num_ctx'],4096)
+            self.assertEqual(payload['options']['num_ctx'],8192)
             self.assertFalse(payload['stream'])
             context = json.loads(payload['messages'][1]['content'])
             selected = context['selected']

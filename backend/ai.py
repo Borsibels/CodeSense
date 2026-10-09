@@ -85,7 +85,7 @@ def build_prompt(context):
     system = SYSTEM + '\nSchema: ' + json.dumps(schema, separators=(',', ':'))
     while True:
         user = json.dumps(bounded.model_dump(), ensure_ascii=False, separators=(',', ':'))
-        if len((system + user).encode('utf-8')) <= PROMPT_BYTE_BUDGET:
+        if len(json.dumps({'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}], 'format': schema}, ensure_ascii=False).encode('utf-8')) <= PROMPT_BYTE_BUDGET:
             return [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}], schema, bounded
         bounded.truncated = True
         note = 'Context was reduced to fit the local model input budget.'
@@ -129,14 +129,13 @@ class OllamaExplainer:
 
     async def explain(self, context):
         messages, schema, bounded = build_prompt(context)
-        payload = {
-            'model': self.model,
-            'messages': messages,
-            'format': schema,
-            'stream': False,
-            'keep_alive': '30m',
-            'options': {'num_ctx': NUM_CTX, 'num_predict': NUM_PREDICT, 'temperature': 0.2},
-        }
+        result = await self.generate_json(messages, schema)
+        return validate_explanation(result, bounded)
+
+    async def generate_json(self, messages, schema):
+        if len(json.dumps({'messages':messages,'format':schema}, ensure_ascii=False).encode('utf-8')) > PROMPT_BYTE_BUDGET:
+            raise InvalidExplanation('AI input exceeds the bounded local context. Choose a smaller file.')
+        payload = {'model':self.model,'messages':messages,'format':schema,'stream':False,'keep_alive':'30m','options':{'num_ctx':NUM_CTX,'num_predict':NUM_PREDICT,'temperature':0.2}}
         try:
             async with httpx.AsyncClient(base_url=self.base_url, timeout=85, transport=self.transport, trust_env=False) as client:
                 ready = await self.readiness()
@@ -147,7 +146,7 @@ class OllamaExplainer:
                 data = response.json()
                 if data.get('done_reason') == 'length':
                     raise InvalidExplanation('Local model reached its output limit; select a smaller section.')
-                return validate_explanation(json.loads(data['message']['content']), bounded)
+                return json.loads(data['message']['content'])
         except httpx.TimeoutException as exc:
             raise TimeoutError('Local inference timed out.') from exc
         except httpx.HTTPError as exc:

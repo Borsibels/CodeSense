@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import threading
 import uuid
+import time
 from bs4 import BeautifulSoup, NavigableString, Tag
 import tinycss2
 from tree_sitter import Language as TSLanguage, Parser
@@ -74,15 +75,23 @@ class ChallengeEngine:
             if signature(item['language'],item['starter_code']) == self.expected[key]:
                 raise ValueError(f'Exercise {key} has an already-correct starter.')
         self.attempts = {}
+        self.generated = {}
         self.lock = threading.Lock()
 
     def get(self, challenge_id):
+        if challenge_id in self.generated:
+            item = self.generated[challenge_id]
+            if time.monotonic() - item['created'] > 3600:
+                self.generated.pop(challenge_id, None)
+                self.expected.pop(challenge_id, None)
+                raise KeyError(challenge_id)
+            return item
         if challenge_id not in self.exercises:
             raise KeyError(challenge_id)
         return self.exercises[challenge_id]
 
     def public(self, item):
-        return {k:v for k,v in item.items() if k not in ('solution','hints','feedback')} | {'hint_count':len(item['hints']), 'verification_policy':'Matches the reviewed solution structure; equivalent algorithms may be rejected.'}
+        return {k:v for k,v in item.items() if k not in ('solution','hints','feedback','created')} | {'hint_count':len(item['hints']), 'verification_policy':'Restores the original source structure; equivalent rewrites may be rejected.' if item.get('origin') == 'ai_missing_line' else 'Matches the reviewed solution structure; equivalent algorithms may be rejected.'}
 
     def select(self, request, languages, concepts):
         candidates = [item for item in self.exercises.values() if item['language'] in languages and item['difficulty'] == request.difficulty]

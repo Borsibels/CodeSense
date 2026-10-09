@@ -84,6 +84,7 @@ export function useWorkspace() {
     finally { if (epoch === explanationEpoch.current) mark('analysis', false); }
   }
   async function loadChallenge(level = challengeDifficulty, language = challengeLanguage) {
+    if (!project) { fail('challenge', 'Add source code first so the exercise language can be detected.'); return; }
     const epoch = ++exerciseEpoch.current;
     setChallengeDifficulty(level); setChallengeLanguage(language); mark('challenge', true);
     setExercise(null); setHints([]); setSolution(''); setResult(null); setAnswer('');
@@ -92,20 +93,21 @@ export function useWorkspace() {
       const body = project ? { project_id: project.project_id, difficulty: level,
         ...(selected && selected.status !== 'skipped' ? { file_id: selected.file_id } : {}) }
         : { language, difficulty: level };
-      const data = await post<ChallengeSelection>('/challenges/select', body);
+      const data = await post<ChallengeSelection>('/challenges/generate', body);
       if (epoch !== exerciseEpoch.current) return;
       if (!data.challenge) throw new Error(data.reason || 'No verified exercise matches this request.');
       setExercise(data.challenge); setAnswer(data.challenge.starter_code); setChallengeLanguage(data.challenge.language);
+      if (difficulty !== level) { setDifficulty(level); ++explanationEpoch.current; setExplanation(null); }
       setGeneral(data.match?.kind === 'general');
     } catch (e) { if (epoch === exerciseEpoch.current) fail('challenge', e); }
     finally { if (epoch === exerciseEpoch.current) mark('challenge', false); }
   }
   async function submit() {
-    if (!exercise) return;
+    if (!exercise) return false;
     const epoch = exerciseEpoch.current;
     mark('submit', true); fail('submit'); setResult(null);
-    try { const data = await post<Verification>('/challenges/submit', { challenge_id: exercise.id, code: answer }); if (epoch === exerciseEpoch.current) setResult(data); }
-    catch (e) { if (epoch === exerciseEpoch.current) fail('submit', e); }
+    try { const data = await post<Verification>('/challenges/submit', { challenge_id: exercise.id, code: answer }); if (epoch === exerciseEpoch.current) { setResult(data); return true; } return false; }
+    catch (e) { if (epoch === exerciseEpoch.current) fail('submit', e); return false; }
     finally { mark('submit', false); }
   }
   async function revealHint() {

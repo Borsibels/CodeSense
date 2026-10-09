@@ -497,6 +497,42 @@
         }
       }
     },
+    "/api/challenges/generate": {
+      "post": {
+        "summary": "Challenge Generate",
+        "operationId": "challenge_generate_api_challenges_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChallengeSelect"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/challenges/{challenge_id}/hints/{level}": {
       "get": {
         "summary": "Hints",
