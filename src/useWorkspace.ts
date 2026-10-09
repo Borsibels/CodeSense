@@ -1,0 +1,130 @@
+import { useEffect, useRef, useState } from 'react';
+import { post, request, uploadProject } from './api';
+import type { ChallengeSelection, Exercise, Explanation, Health, Project, Scope, SourceFile, Verification } from './api';
+import type { Difficulty, Language } from './types';
+
+type Operation = 'upload' | 'source' | 'analysis' | 'challenge' | 'submit' | 'hint' | 'solution';
+export function useWorkspace() {
+  const [project, setProject] = useState<Project | null>(null);
+  const [selected, setSelected] = useState<SourceFile | null>(null);
+  const [code, setCode] = useState('');
+  const [range, setRange] = useState<{ start_line: number; end_line: number } | null>(null);
+  const [scope, setScope] = useState<Scope>('file');
+  const [difficulty, setDifficulty] = useState<Difficulty>('beginner');
+  const [explanation, setExplanation] = useState<Explanation | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
+  const [healthError, setHealthError] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [exercise, setExercise] = useState<Exercise | null>(null);
+  const [general, setGeneral] = useState(false);
+  const [answer, setAnswer] = useState('');
+  const [hints, setHints] = useState<string[]>([]);
+  const [solution, setSolution] = useState('');
+  const [result, setResult] = useState<Verification | null>(null);
+  const [challengeDifficulty, setChallengeDifficulty] = useState<Difficulty>('beginner');
+  const [challengeLanguage, setChallengeLanguage] = useState<Language>('python');
+  const [busy, setBusy] = useState<Partial<Record<Operation, boolean>>>({});
+  const [errors, setErrors] = useState<Partial<Record<Operation, string>>>({});
+  const sourceEpoch = useRef(0), explanationEpoch = useRef(0), exerciseEpoch = useRef(0);
+  const mark = (op: Operation, value: boolean) => setBusy(s => ({ ...s, [op]: value }));
+  const fail = (op: Operation, error: unknown = '') => setErrors(s => ({ ...s, [op]: error instanceof Error ? error.message : String(error) }));
+
+  async function checkHealth() {
+    setChecking(true);
+    try { setHealth(await request<Health>('/health', {}, 5000)); setHealthError(''); }
+    catch (e) { setHealth(null); setHealthError((e as Error).message); }
+    finally { setChecking(false); }
+  }
+  useEffect(() => { void checkHealth(); const timer = window.setInterval(checkHealth, 15000); return () => window.clearInterval(timer); }, []);
+
+  async function selectFile(file: SourceFile, active = project, preserveExplanation = false) {
+    if (!active) return;
+    const epoch = ++sourceEpoch.current; ++explanationEpoch.current;
+    setSelected(file); setCode(''); setRange(null); if (!preserveExplanation) { setExplanation(null); setScope('file'); }
+    fail('source'); fail('analysis'); mark('analysis', false);
+    if (file.status === 'skipped') { mark('source', false); return; }
+    mark('source', true);
+    try {
+      const data = await request<{ code: string }>(`/projects/${active.project_id}/files/${file.file_id}`);
+      if (epoch === sourceEpoch.current) setCode(data.code);
+    } catch (e) { if (epoch === sourceEpoch.current) fail('source', e); }
+    finally { if (epoch === sourceEpoch.current) mark('source', false); }
+  }
+  async function upload(file: File, level: Difficulty) {
+    mark('upload', true); fail('upload');
+    try {
+      const data = await uploadProject(file);
+      ++sourceEpoch.current; ++explanationEpoch.current; ++exerciseEpoch.current;
+      setProject(data); setDifficulty(level); setChallengeDifficulty(level);
+      setSelected(null); setCode(''); setExplanation(null); setRange(null);
+      setExercise(null); setAnswer(''); setHints([]); setSolution(''); setResult(null);
+      setErrors({});
+      const first = data.files.find(f => f.status !== 'skipped');
+      if (first) await selectFile(first, data);
+      return true;
+    } catch (e) { fail('upload', e); return false; }
+    finally { mark('upload', false); }
+  }
+  function changeScope(value: Scope) { ++explanationEpoch.current; setScope(value); setExplanation(null); fail('analysis'); mark('analysis', false); }
+  function changeDifficulty(value: Difficulty) { ++explanationEpoch.current; setDifficulty(value); setExplanation(null); fail('analysis'); mark('analysis', false); }
+  async function explain(value = scope) {
+    if (!project) return;
+    if (value !== 'project' && (!selected || selected.status === 'skipped')) return;
+    if (value === 'block' && !range) return;
+    const epoch = ++explanationEpoch.current;
+    setScope(value); mark('analysis', true); fail('analysis'); setExplanation(null);
+    try {
+      const body = { project_id: project.project_id, scope: value, difficulty,
+        ...(value !== 'project' ? { file_id: selected!.file_id } : {}), ...(value === 'block' ? range : {}) };
+      const data = await post<Explanation>('/analyze', body);
+      if (epoch === explanationEpoch.current) setExplanation(data);
+    } catch (e) { if (epoch === explanationEpoch.current) fail('analysis', e); }
+    finally { if (epoch === explanationEpoch.current) mark('analysis', false); }
+  }
+  async function loadChallenge(level = challengeDifficulty, language = challengeLanguage) {
+    const epoch = ++exerciseEpoch.current;
+    setChallengeDifficulty(level); setChallengeLanguage(language); mark('challenge', true);
+    setExercise(null); setHints([]); setSolution(''); setResult(null); setAnswer('');
+    (['challenge', 'hint', 'solution', 'submit'] as Operation[]).forEach(op => fail(op));
+    try {
+      const body = project ? { project_id: project.project_id, difficulty: level,
+        ...(selected && selected.status !== 'skipped' ? { file_id: selected.file_id } : {}) }
+        : { language, difficulty: level };
+      const data = await post<ChallengeSelection>('/challenges/select', body);
+      if (epoch !== exerciseEpoch.current) return;
+      if (!data.challenge) throw new Error(data.reason || 'No verified exercise matches this request.');
+      setExercise(data.challenge); setAnswer(data.challenge.starter_code); setChallengeLanguage(data.challenge.language);
+      setGeneral(data.match?.kind === 'general');
+    } catch (e) { if (epoch === exerciseEpoch.current) fail('challenge', e); }
+    finally { if (epoch === exerciseEpoch.current) mark('challenge', false); }
+  }
+  async function submit() {
+    if (!exercise) return;
+    const epoch = exerciseEpoch.current;
+    mark('submit', true); fail('submit'); setResult(null);
+    try { const data = await post<Verification>('/challenges/submit', { challenge_id: exercise.id, code: answer }); if (epoch === exerciseEpoch.current) setResult(data); }
+    catch (e) { if (epoch === exerciseEpoch.current) fail('submit', e); }
+    finally { mark('submit', false); }
+  }
+  async function revealHint() {
+    if (!exercise || hints.length >= exercise.hint_count) return;
+    const epoch = exerciseEpoch.current;
+    mark('hint', true); fail('hint');
+    try { const data = await request<{ hints: string[] }>(`/challenges/${exercise.id}/hints/${hints.length + 1}`); if (epoch === exerciseEpoch.current) setHints(data.hints); }
+    catch (e) { if (epoch === exerciseEpoch.current) fail('hint', e); }
+    finally { mark('hint', false); }
+  }
+  async function revealSolution() {
+    if (!exercise) return;
+    const epoch = exerciseEpoch.current;
+    mark('solution', true); fail('solution');
+    try { const data = await request<{ solution: string }>(`/challenges/${exercise.id}/solution`); if (epoch === exerciseEpoch.current) setSolution(data.solution); }
+    catch (e) { if (epoch === exerciseEpoch.current) fail('solution', e); }
+    finally { mark('solution', false); }
+  }
+  function editAnswer(value: string) { setAnswer(value); setResult(null); }
+  return { project, selected, code, range, setRange, scope, changeScope, difficulty, changeDifficulty, explanation,
+    health, healthError, checking, checkHealth, exercise, general, answer, editAnswer, hints, solution, result,
+    challengeDifficulty, challengeLanguage, busy, errors, upload, selectFile, explain, loadChallenge, submit, revealHint, revealSolution };
+}
+export type Workspace = ReturnType<typeof useWorkspace>;

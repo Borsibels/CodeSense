@@ -6,11 +6,23 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import type { Language } from "./types";
 const langs = { python, javascript, html, css };
 const theme = EditorView.theme({ "&": { backgroundColor: "var(--code-bg)", color: "var(--text)", height: "100%" }, ".cm-gutters": { backgroundColor: "var(--code-bg)", color: "var(--muted)", borderRight: "2px solid var(--border)" }, ".cm-content,.cm-gutters": { fontFamily: "'JetBrains Mono',monospace", fontSize: "13px", lineHeight: "24px" }, ".cm-activeLine,.cm-activeLineGutter": { backgroundColor: "transparent" }, ".cm-cursor": { borderLeftColor: "var(--accent)" } }, { dark: true });
-export function CodeEditor({ value = "", language = "python", readOnly = false, onChange }: { value?: string; language?: Language; readOnly?: boolean; onChange?: (v: string) => void }) {
+export function CodeEditor({ value = "", language = "python", readOnly = false, onChange, onSelection, highlight }: { value?: string; language?: Language; readOnly?: boolean; onChange?: (v: string) => void; onSelection?: (range: { start_line: number; end_line: number } | null) => void; highlight?: [number, number] | null }) {
   const host = useRef<HTMLDivElement>(null);
+  const editor = useRef<EditorView>();
+  const callbacks = useRef({ onChange, onSelection }); callbacks.current = { onChange, onSelection };
+  const initial = useRef(value); initial.current = value;
   useEffect(() => {
-    const v = new EditorView({ parent: host.current!, doc: value, extensions: [basicSetup, langs[language](), oneDark, theme, EditorView.editable.of(!readOnly), EditorView.updateListener.of(u => u.docChanged && onChange?.(u.state.doc.toString()))] });
+    const v = new EditorView({ parent: host.current!, doc: initial.current, extensions: [basicSetup, langs[language](), oneDark, theme, EditorView.editable.of(!readOnly), EditorView.updateListener.of(u => {
+      if (u.docChanged) callbacks.current.onChange?.(u.state.doc.toString());
+      if (u.selectionSet || u.docChanged) {
+        const selection = u.state.selection.main;
+        callbacks.current.onSelection?.(selection.empty ? null : { start_line: u.state.doc.lineAt(selection.from).number, end_line: u.state.doc.lineAt(Math.max(selection.from, selection.to - 1)).number });
+      }
+    })] });
+    editor.current = v;
     return () => v.destroy();
-  }, [language, readOnly, value]);
+  }, [language, readOnly]);
+  useEffect(() => { const v = editor.current; if (v && v.state.doc.toString() !== value) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value } }); }, [value]);
+  useEffect(() => { const v = editor.current; if (v && highlight && highlight[0] >= 1 && highlight[1] <= v.state.doc.lines) { const anchor = v.state.doc.line(highlight[0]).from; v.dispatch({ selection: { anchor, head: v.state.doc.line(highlight[1]).to }, effects: EditorView.scrollIntoView(anchor, { y: 'center' }) }); } }, [highlight, value]);
   return <div className="cm-host" ref={host} aria-label="Code" />;
 }

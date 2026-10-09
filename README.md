@@ -1,39 +1,42 @@
-# CodeSense UI (UI/UX only)
+# CodeSense
 
-React + TypeScript + Vite + Tailwind + CodeMirror 6. No API calls, no mock data, fully offline at runtime (fonts are bundled via @fontsource).
+Local code exploration and debugging practice with React, CodeMirror, and a FastAPI backend. The frontend now calls the backend for ZIP ingestion, source browsing, explanations, challenges, hints, and answer verification.
 
-## Setup
-1. Install Node.js 18+ (check: `node -v`, `npm -v`).
-2. `cd codesense-ui`
-3. `npm install`   (needs internet once; afterwards everything works offline)
-4. `npm run dev`   -> open http://127.0.0.1:5173
-5. `npm run build` -> production build in `dist/`; `npm run preview` to test it
-6. Optional: `npm run typecheck`
+## Run the integrated application
 
-## Viewing every state
-Use the "UI preview" selector below the footer: Empty, Loading (skeleton), Error. Sidebar: Workspace = Upload, Session = Explorer, Practice = Debug. Theme toggles dark/light. Setup opens a keyboard-accessible modal drawer (Escape closes it).
-
-The welcome panel loops the supplied transparent `public/sloth-mascot.webm`, muted, with a pause/play button. Tips and empty states use `public/sloth-mascot.png` without a frame or background. Reduced-motion preferences or video loading errors show the static PNG instead. CSS adds screen entrances and button feedback; reduced-motion preferences disable animations and transitions. Layouts adapt to phones, tablets, and desktop screens.
-
-ZIP selection supports drag-and-drop and keyboard browsing, rejects multiple files, non-ZIP names, and empty files. Archive contents and source limits require the future analysis runtime. The project preview does not unpack or analyze the selected archive.
-
-Check changes with `npm run typecheck`, `npm run build`, and `node --test tests/upload.test.ts` (the last command needs Node.js 22.18+ for built-in TypeScript support).
-
-## Wiring the backend later
-Screens take typed props (src/types.ts): `files`, `code`, `explanation` (Explorer), `challenge`, `result` (Debug). Planned endpoints: /api/health, /api/projects/upload, /api/projects/{id}/files, /api/analyze, /api/challenges/select, /api/challenges/submit, /api/challenges/{id}/hints/{level}, /api/challenges/{id}/solution.
-
-## Local backend
-
-The FastAPI backend implements project ingestion, static analysis, bounded local AI
-context, Ollama integration, and curated debugging exercises. See [backend setup](BACKEND.md)
-and [the integration contract](docs/backend-agreement.md). Run from the repository root:
+Install Node.js 22.18+ and Python 3.11+. From the repository root:
 
 ```powershell
+npm ci
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-lock.txt
+npm run build
 powershell -File scripts/start.ps1
 ```
 
-The frontend still takes presentation props; API wiring is separate. Its `steps`,
-`limits`, `concept_tags`, `instructions`, and grading props need a mapping from the
-backend schema. See [frontend integration notes](docs/frontend-integration.md).
+Open http://127.0.0.1:8000. FastAPI serves the built frontend and `/api` from the same address. Build before starting the server. The startup script also supports the existing `.venv` in the parent workspace when no repository virtual environment exists.
+
+For frontend development, keep the backend running and run `npm run dev` in another terminal. Open http://127.0.0.1:5173; Vite forwards `/api` requests to port 8000. Rebuild to update the frontend served on port 8000.
+
+## What works
+
+Upload a ZIP (maximum 10 MB), browse its eligible Python, JavaScript, HTML, and CSS files, inspect relationships and skipped-file reasons, and request explanations of a project, a file, or selected lines. Explanation references open the corresponding file and highlight its original lines.
+
+Practice uses curated exercises matched to project concepts where available, with an explicit general-exercise fallback. Edit the starter code, check the answer, reveal hints one at a time, and explicitly reveal a reference solution. Verification checks constrained source structure; it does not execute code or prove general correctness.
+
+Backend connectivity and local model readiness are shown separately. Browsing and exercises work without AI. Explanations require Ollama running locally on port 11434 with `qwen2.5-coder:3b` available (or the backend's configured `CODESENSE_MODEL`). Model installation and runtime setup belong to the local AI integration. See [backend details](BACKEND.md).
+
+Project data is temporary server memory; a browser refresh resets the visible workspace. Sessions expire after one hour and are lost when the backend restarts. Navigation between Session and Practice preserves the current frontend state. Bundled fonts, styling, and existing mascot assets are retained.
+
+## Checks
+
+```powershell
+npm run typecheck
+npm run build
+node --experimental-strip-types --test tests/api.test.ts tests/upload.test.ts
+.venv\Scripts\python -m unittest discover -s tests -p "test_*.py"
+```
+
+The API client tests cover JSON requests, multipart uploads, backend errors, unavailable connections, invalid responses, and timeouts. Backend tests cover ingestion, parsers, contexts, exercise verification, and simulated Ollama responses. Live model quality requires testing with the actual local AI runtime.
+
+See [integration details](docs/frontend-integration.md) and [backend agreement](docs/backend-agreement.md).
