@@ -1,6 +1,6 @@
 @tailwind base;@tailwind components;@tailwind utilities;
-:root,[data-theme=dark]{--bg:#0B0B0C;--surface:#141415;--border:#2E2E32;--code-bg:#060607;--text:#EDEAE4;--muted:#B4B0A8;--accent:#C48A5A;--accent-shadow:#7A5233;--on-accent:#0B0B0C;--panel-shadow:#1B1B1E;--success:#4FAE7A;--warning:#F2C230;--error:#E5484D}
-[data-theme=light]{--bg:#F6F4F0;--surface:#FFFFFF;--border:#D6D1C8;--code-bg:#F0EDE7;--text:#1A1917;--muted:#5C5850;--accent:#9A5F32;--accent-shadow:#6B4122;--on-accent:#FFFFFF;--panel-shadow:#E4E0D8;--success:#1E7F4C;--warning:#8A6A00;--error:#B3261E}
+:root,[data-theme=dark]{--bg:#0B0E0B;--surface:#141814;--border:#2E352E;--code-bg:#070A07;--text:#E9EEE9;--muted:#AEB9AF;--accent:#75C583;--accent-shadow:#355D3D;--on-accent:#0B0E0B;--panel-shadow:#1B211B;--success:#4FAE7A;--warning:#F2C230;--error:#E5484D}
+[data-theme=light]{--bg:#F3F6F2;--surface:#FFFFFF;--border:#D3DDD3;--code-bg:#EFF3EF;--text:#1A1F1A;--muted:#586358;--accent:#357848;--accent-shadow:#244F31;--on-accent:#FFFFFF;--panel-shadow:#E1E9E1;--success:#1E7F4C;--warning:#8A6A00;--error:#B3261E}
 *{box-sizing:border-box;border-radius:0}
 body{margin:0;background:var(--bg);color:var(--text);font-family:Manrope,system-ui,sans-serif}
 button,input,select{font-family:inherit}
@@ -54,7 +54,7 @@ button,input,select{font-family:inherit}
 .tree{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}.tree li{display:flex;gap:8px;align-items:center;padding:8px;border:2px solid transparent;font-size:14px}.tree li.sel{background:var(--bg);border-color:var(--border);border-left-color:var(--accent)}
 @media (max-width:1024px){.side{width:72px}.side .t{display:none}.grid{flex-direction:column}.drawer{width:100%}.dev{left:84px}}
 
-/* Pixel artwork, warm copper, and quiet movement keep the workspace focused. */
+/* Pixel artwork, a calm green accent, and quiet movement keep the workspace focused. */
 body{background-image:radial-gradient(var(--border) .6px,transparent .6px);background-size:24px 24px}
 .app{min-height:calc(100vh - 58px)}
 .side{background:var(--bg);width:216px;padding:28px 14px;border-right-width:1px}
@@ -153,3 +153,13 @@ body{background-image:radial-gradient(var(--border) .6px,transparent .6px);backg
 .source-reference{height:auto!important;font-size:11px!important;overflow-wrap:anywhere;text-align:left}.verification p{margin:8px 0}
 select{background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px;font:inherit}
 .paste-input{display:flex;flex-direction:column;gap:12px}.paste-input label{display:flex;flex-direction:column;gap:6px;color:var(--muted)}.paste-input input,.paste-input textarea{border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--code-bg);color:var(--text);width:100%;box-sizing:border-box}.paste-input textarea{min-height:240px;resize:vertical;font:13px/1.6 'JetBrains Mono',monospace}.paste-input .row{align-items:end;flex-wrap:wrap}.paste-input .row label{flex:1;min-width:140px}
+.session-content{display:flex;flex:1;flex-direction:column;gap:14px;min-width:0}
+.session-tabs{display:flex;align-self:flex-start;gap:4px;padding:4px;border:1px solid var(--border);background:var(--surface)}
+.session-tab{min-width:112px;min-height:40px;padding:8px 16px;border:1px solid transparent;background:transparent;color:var(--muted);font-family:inherit;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;transition:background-color .18s ease,color .18s ease,border-color .18s ease}
+.session-tab:hover:not([aria-pressed=true]){color:var(--text);background:var(--bg)}
+.session-tab[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.session-panel{display:flex;flex:1;min-width:0}
+.session-panel>.grid{width:100%}
+.empty .mascot-empty{width:144px!important;height:112px;aspect-ratio:auto;background:transparent}
+.mascot-empty img{object-fit:contain!important}
+@media(max-width:480px){.session-content{gap:10px}.session-tabs{align-self:stretch}.session-tab{flex:1;min-width:0}}

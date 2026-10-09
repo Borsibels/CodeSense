@@ -1,3 +1,4 @@
+import traceback
 import asyncio
 import io
 import json
@@ -140,8 +141,10 @@ def create_app(explainer=None, inference_timeout=90):
             except TimeoutError as exc:
                 raise HTTPException(504, 'Local explanation timed out.') from exc
             except (ValidationError, ValueError, TypeError) as exc:
-                raise HTTPException(502, 'AI response failed schema or source-line validation.') from exc
+                traceback.print_exc()
+                raise HTTPException(502, f'AI response failed schema or source-line validation. [{type(exc).__name__}: {str(exc)[:300]}]') from exc
             except Exception as exc:
+                traceback.print_exc()
                 raise HTTPException(502, 'Local explanation service failed.') from exc
 
     @app.get('/api/challenges')
