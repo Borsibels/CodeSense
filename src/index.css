@@ -146,3 +146,9 @@ body{background-image:radial-gradient(var(--border) .6px,transparent .6px);backg
 .mascot-player{position:relative}
 .mascot-control{position:absolute;right:0;bottom:0;padding:5px 8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer}
 .mascot-control:hover{color:var(--text);border-color:var(--accent)}
+.explorer-grid{align-items:stretch}.project-panel{flex:0 0 250px;min-width:0}.source-panel{flex:1.4;min-width:0}.explanation-panel{flex:1.2;min-width:0}
+.file-tree{list-style:none;padding-left:12px;margin:4px 0}.file-tree>li{margin:4px 0}.file-tree summary{font-size:13px;cursor:pointer;overflow-wrap:anywhere}
+.file-choice{display:flex;align-items:center;gap:6px;text-align:left;width:100%;padding:10px 6px;border:1px solid transparent;background:transparent;color:var(--text);cursor:pointer;font-size:12px}
+.file-choice span{overflow-wrap:anywhere;min-width:0;flex:1}.file-choice small{color:var(--muted);font-size:10px}.file-choice:hover,.file-choice.selected{border-color:var(--accent);background:var(--surface)}
+.source-reference{height:auto!important;font-size:11px!important;overflow-wrap:anywhere;text-align:left}.verification p{margin:8px 0}
+select{background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px;font:inherit}

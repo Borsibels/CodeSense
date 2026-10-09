@@ -9,4 +9,5 @@ test("upload selection accepts one nonempty ZIP and rejects invalid selections",
   assert.match(uploadError([zip, zip])!, /one ZIP/);
   assert.match(uploadError([{ name: "project.zip.exe", size: 1024 }])!, /\.zip archive/);
   assert.match(uploadError([{ name: "empty.zip", size: 0 }])!, /empty/);
+  assert.match(uploadError([{ name: "huge.zip", size: 10 * 1024 * 1024 + 1 }])!, /10 MB/);
 });

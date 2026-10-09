@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { CodeEditor } from "./Code";
 import { AnimatedSloth, Empty, ErrBanner, Ic, I, Limits, Pill, Seg, Sk, Tip } from "./ui";
 import { uploadError } from "./upload";
-import type { Challenge, Difficulty, ExplanationData, FileNode, SubmitResult, ViewState } from "./types";
+import type { Difficulty, Language, ViewState } from "./types";
+import type { TreeNode } from './api';
+import type { Workspace } from './useWorkspace';
 const DIFFS = [{ id: "beginner", label: "Beginner" }, { id: "intermediate", label: "Intermediate" }, { id: "experienced", label: "Experienced" }] as { id: Difficulty; label: string }[];
 const Lines = ({ n = 5 }: { n?: number }) => <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{["90%", "60%", "75%", "45%", "80%", "55%"].slice(0, n).map((w, i) => <Sk key={i} w={w} />)}</div>;
 
-export function UploadScreen({ view, onStart }: { view: ViewState; onStart: () => void }) {
+export function UploadScreen({ view, onStart, errorMessage, disabled }: { view: ViewState; onStart: (file: File, difficulty: Difficulty) => void; errorMessage?: string; disabled?: boolean }) {
   const [file, setFile] = useState<File | null>(null); const [d, setD] = useState<Difficulty>("beginner");
   const [error, setError] = useState<string | null>(null); const [dragging, setDragging] = useState(false);
   const choose = (files: File[]) => { const message = uploadError(files); setError(message); setFile(message ? null : files[0]); };
@@ -16,47 +18,59 @@ export function UploadScreen({ view, onStart }: { view: ViewState; onStart: () =
     {error && <ErrBanner title="Couldn't select this project" text={error} />}
     <div className="lbl">Upload limits</div><Limits /><div className="lbl">Supported languages</div><div className="row">{["HTML", "CSS", "JavaScript", "Python"].map(l => <Pill key={l}>{l}</Pill>)}</div><div style={{ color: "var(--muted)", fontSize: 14 }}>Other files are skipped.</div>
     <div className="lbl">Your learning pace</div><Seg<Difficulty> value={d} options={DIFFS} onChange={setD} /><p className="helper">{d === "beginner" ? "Start with the basics, with a little more guidance." : d === "intermediate" ? "Connect the concepts and take on trickier bugs." : "Less guidance. More room to work things out."}</p>
-    {view === "error" && <ErrBanner title="Upload failed" text="Check the upload limits above, then choose another ZIP archive." />}
-    {view === "loading" ? <div role="status"><div className="bar" role="progressbar" aria-label="Analyzing locally" /><p className="helper">Previewing local analysis… Take it one step at a time.</p></div> : <button className="btn pri lg" disabled={!file} onClick={onStart}>Explore project preview <span aria-hidden="true">→</span></button>}<p className="helper">{file ? "Archive selected. This UI preview doesn't analyze its contents yet." : "Choose a ZIP to open the project preview."}</p></section>
+    {view === "error" && <ErrBanner title="Upload failed" text={errorMessage || "Check the upload limits above, then choose another ZIP archive."} />}
+    {view === "loading" ? <div role="status"><div className="bar" role="progressbar" aria-label="Analyzing locally" /><p className="helper">Indexing your project locally…</p></div> : <button className="btn pri lg" disabled={!file || disabled} onClick={() => file && onStart(file, d)}>Explore project <span aria-hidden="true">→</span></button>}<p className="helper">{disabled ? 'Wait for the current explanation to finish.' : file ? "Your archive will be checked and indexed on this device." : "Choose a ZIP to explore your project."}</p></section>
     <div className="welcome-column"><section className="card panel welcome-panel"><div className="companion"><div><span className="lbl">Meet your coding companion</span><h2>A little patience.<br /><em>A lot of progress.</em></h2><p>Big projects make more sense<br />one small step at a time.</p></div><AnimatedSloth /><span className="companion-caption"><span className="dot" />Ready when you are.</span></div><div className="workflow"><h3>From “what?” to “got it.”</h3><ol>{[["Explore", "Get your bearings in the project."], ["Understand", "Turn code into plain-language explanations."], ["Practice", "Work through a bug, with hints if you need them."], ["Reflect", "Learn from each fix and keep moving."]].map(([title, text], i) => <li key={title}><span className="workflow-number">0{i + 1}</span><div><b>{title}</b><span>{text}</span></div></li>)}</ol></div></section><Tip /></div></div>;
 }
 
-export function ExplorerScreen({ view, files = [], code, explanation, onChallenge, onRetry }: { view: ViewState; files?: FileNode[]; code?: string; explanation?: ExplanationData; onChallenge: () => void; onRetry?: () => void }) {
-  const load = view === "loading"; const tabs = ["Project", "File", "Selection"];
-  const row = (f: FileNode): any => <li key={f.path}><Ic d={I.file} s={16} />{f.path}<span className="pill" style={{ height: 24, marginLeft: "auto" }}>{f.status}</span></li>;
-  return <div className="grid" style={{ alignItems: "stretch" }}>
-    <section className="card panel" style={{ flex: "0 0 270px" }} aria-busy={load}><div className="ttl">Project files</div>{load ? <Lines n={6} /> : files.length ? <ul className="tree">{files.map(row)}</ul> : <Empty mascot="project" title="No project loaded" text="Upload a ZIP to see its files." size={4} />}</section>
-    <section className="card panel" style={{ flex: 1.4 }} aria-busy={load}><div className="row"><div className="ttl" style={{ flex: 1 }}>Code</div><button className="btn" disabled={!code}>Explain file</button><button className="btn" disabled={!code}>Explain selection</button></div>{load ? <div className="cm-host" style={{ padding: 20 }}><Lines n={6} /></div> : code ? <CodeEditor value={code} readOnly /> : <Empty title="No file selected" text="Choose a file in the tree to read it here." />}</section>
-    <section className="card panel" style={{ flex: 1.2 }} aria-busy={load}><div className="ttl">Your code, explained</div><div className="seg">{tabs.map((t, i) => <button key={t} className={explanation?.level === t.toLowerCase() || (!explanation && i === 0) ? "a" : ""}>{t}</button>)}</div>
-      {view === "error" && <ErrBanner title="Model unavailable" text="Explanations are paused. You can still browse files and try exercises." action="Retry" onAction={onRetry} />}
-      {load ? <><Sk h={44} /><Lines n={4} /></> : explanation ? <><p>{explanation.summary}</p><div className="lbl">Key concepts</div><div className="row">{explanation.concepts.map(c => <Pill key={c}>{c}</Pill>)}</div><div className="lbl">How it works</div><ol>{explanation.steps.map((s, i) => <li key={i}>{s.text}</li>)}</ol>{explanation.limits.length > 0 && <div className="lbl">Analysis limits</div>}</> : view !== "error" && <Empty title="Nothing to explain yet" text="Select a file or a code range, then choose an Explain action." />}
-      <button className="btn pri lg" onClick={onChallenge}>Start debugging challenge</button><Tip /></section></div>;
+export function ExplorerScreen({ workspace: w, onChallenge }: { workspace: Workspace; onChallenge: () => void }) {
+  const [focusedLines, setFocusedLines] = useState<[number, number] | null>(null);
+  useEffect(() => setFocusedLines(null), [w.selected?.file_id]);
+  const modelReady = w.health?.ai.status === 'ready';
+  const canExplain = !!w.project && modelReady && !w.busy.analysis && !w.busy.source;
+  const tree = (nodes: TreeNode[]): React.ReactNode => <ul className="file-tree">{nodes.map(n => <li key={n.path}>{n.type === 'directory' ? <details open><summary>{n.name}</summary>{tree(n.children)}</details> : <button className={'file-choice' + (n.file_id === w.selected?.file_id ? ' selected' : '')} onClick={() => { const file = w.project?.files.find(f => f.file_id === n.file_id); if (file) void w.selectFile(file); }}><Ic d={I.file} s={15} /><span>{n.name}</span><small>{n.status}</small></button>}</li>)}</ul>;
+  return <div className="grid explorer-grid">
+    <section className="card panel project-panel"><h2 className="ttl">Project files</h2>{w.project ? <><p className="helper">{w.project.name} · {w.project.analyzed_files} analyzed · {w.project.partial_files} partial · {w.project.skipped_files} skipped</p>{tree(w.project.file_tree)}{w.project.warnings.length > 0 && <details><summary>Upload notes ({w.project.warnings.length})</summary><ul>{w.project.warnings.map((note,i) => <li key={i} className="helper">{note}</li>)}</ul></details>}</> : <Empty mascot="project" title="No project loaded" text="Upload a ZIP from Workspace to see its files." size={4} />}</section>
+    <section className="card panel source-panel" aria-busy={!!w.busy.source}><div className="row"><h2 className="ttl" style={{flex:1}}>Code</h2><button className="btn" disabled={!canExplain || !w.selected || w.selected.status === 'skipped'} onClick={() => void w.explain('file')}>Explain file</button><button className="btn" disabled={!canExplain || !w.range} onClick={() => void w.explain('block')}>Explain selection</button></div>
+      {w.selected && <p className="helper">{w.selected.path}{focusedLines && ` · Referenced lines ${focusedLines[0]}–${focusedLines[1]}`}</p>}
+      {w.errors.source && <ErrBanner title="Couldn't load this file" text={w.errors.source} action="Retry" onAction={() => w.selected && void w.selectFile(w.selected)} />}
+      {w.busy.source ? <Lines n={6} /> : w.selected?.status === 'skipped' ? <Empty title="File skipped" text={w.selected.reason || 'Unsupported source file.'} /> : w.selected ? <><CodeEditor key={w.selected.file_id} value={w.code} language={w.selected.language || 'python'} readOnly onSelection={w.setRange} highlight={focusedLines} /><p className="helper">{w.range ? `Selected lines ${w.range.start_line}–${w.range.end_line}` : 'Highlight code in the editor to explain selected lines.'}</p>{w.selected.reason && <p className="helper">{w.selected.reason}</p>}</> : <Empty title="No file selected" text="Choose a file in the tree to read it here." />}
+    </section>
+    <section className="card panel explanation-panel" aria-busy={!!w.busy.analysis}><h2 className="ttl">Your code, explained</h2><div className="seg">{(['project','file','block'] as const).map(scope => <button key={scope} className={w.scope === scope ? 'a' : ''} disabled={!!w.busy.analysis} onClick={() => w.changeScope(scope)}>{scope === 'block' ? 'Selection' : scope[0].toUpperCase()+scope.slice(1)}</button>)}</div><Seg<Difficulty> value={w.difficulty} options={DIFFS} onChange={w.changeDifficulty} />
+      {!modelReady && <ErrBanner title={w.health ? 'Model unavailable' : 'Backend unavailable'} text={w.healthError || 'Explanations need the local model. Browsing and exercises remain available when the backend is running.'} action="Check again" onAction={() => void w.checkHealth()} />}
+      {w.errors.analysis && <ErrBanner title="Explanation failed" text={w.errors.analysis} action="Retry" onAction={() => void w.explain()} />}
+      <button className="btn" disabled={!canExplain || (w.scope !== 'project' && (!w.selected || w.selected.status === 'skipped')) || (w.scope === 'block' && !w.range)} onClick={() => void w.explain()}>{w.busy.analysis ? 'Explaining locally…' : `Explain ${w.scope === 'block' ? 'selection' : w.scope}`}</button>
+      {w.busy.analysis ? <div role="status"><Lines n={5} /><p className="helper">The local model is working. This can take a little time.</p></div> : w.explanation ? <><p>{w.explanation.summary}</p><div className="row">{w.explanation.concepts.map(c => <Pill key={c}>{c}</Pill>)}</div>{w.explanation.sections.map((section,i) => <section key={i}><b>{section.title}</b><p>{section.explanation}</p><button className="btn source-reference" onClick={async () => { const file = w.project?.files.find(f => f.file_id === section.file_id); if (file) { if (file.file_id !== w.selected?.file_id) await w.selectFile(file, w.project, true); setFocusedLines([section.start_line,section.end_line]); } }}>{w.project?.files.find(f => f.file_id === section.file_id)?.path || 'Source'} · lines {section.start_line}–{section.end_line}</button></section>)}{w.explanation.limitations.length > 0 && <><div className="lbl">Analysis limits</div><ul>{w.explanation.limitations.map((limit,i) => <li className="helper" key={i}>{limit}</li>)}</ul></>}</> : !w.errors.analysis && <Empty title="Nothing explained yet" text="Choose Project, File or Selection and request an explanation." />}
+      {w.project && <details><summary>Static file relationships</summary><ul>{w.project.relationships.map((r,i) => <li className="helper" key={i}>{r.source} → {r.target} ({r.resolved ? r.kind : 'unresolved'})</li>)}</ul></details>}
+      <button className="btn pri lg" disabled={!w.health || !!w.busy.challenge} onClick={onChallenge}>Start debugging challenge</button><Tip />
+    </section></div>;
 }
 
-export function DebugScreen({ view, challenge, result }: { view: ViewState; challenge?: Challenge; result?: SubmitResult }) {
-  const [d, setD] = useState<Difficulty>("beginner"); const [shown, setShown] = useState(0); const load = view === "loading";
-  const tone = { passed: ["Passed", "var(--success)"], partial: ["Partially met", "var(--warning)"], not_met: ["Not met", "var(--error)"] };
-  return <div className="grid"><section className="card panel" aria-busy={load}><div className="ttl">Challenge</div><div className="lbl">Difficulty</div><Seg<Difficulty> value={d} options={DIFFS} onChange={setD} />
-    {load ? <Lines n={4} /> : challenge ? <><div className="row"><Pill>{challenge.is_general ? "General exercise" : "Matched to a concept in your project"}</Pill><Pill>{challenge.language}</Pill></div><p>{challenge.instructions}</p></> : <Empty mascot="challenge" title="Your next challenge awaits" text="Project exercises will appear here when the analysis runtime is connected." size={5} />}
-    {view === "error" && <ErrBanner title="No verified exercise available" text="Try the general exercise instead." />}
-    <div className="lbl">Hints</div>{[0, 1, 2].map(i => <div className="hint" key={i}><Ic d={I.lock} s={16} />Hint {i + 1}<span style={{ marginLeft: "auto" }}>{i < shown ? (challenge?.hint_levels[i] ?? "Unlocked") : "Locked"}</span></div>)}</section>
-    <section className="card panel"><div className="ttl">Your fix</div>{load ? <div className="cm-host" style={{ padding: 20 }}><Lines n={6} /></div> : <CodeEditor value={challenge?.starter_code ?? ""} language={challenge?.language} />}
-      {result && <div className="err" role="status" style={{ borderColor: tone[result.overall][1] }}><b>{tone[result.overall][0]}</b></div>}
-      {result && <ul style={{ margin: 0, paddingLeft: 18 }}>{result.criteria.map(c => <li key={c.label}>{c.met ? "Met" : "Not met"}: {c.label}</li>)}</ul>}
-      {result && <p style={{ color: "var(--muted)", fontSize: 13 }}>This check covers the exercise's defined criteria. It does not prove the whole program is correct.</p>}
-      <div className="row" style={{ justifyContent: "space-between" }}><button className="btn" disabled={!challenge || load || shown >= Math.min(3, challenge.hint_levels.length)} onClick={() => setShown(shown + 1)}>Reveal next hint</button><button className="btn pri" disabled title="Solution checking requires a connected analysis runtime">Check my solution</button></div><p className="helper">Solution checking is available when the analysis runtime is connected.</p></section></div>;
+export function DebugScreen({ workspace: w }: { workspace: Workspace }) {
+  const locked = !!(w.busy.challenge || w.busy.submit || w.busy.hint || w.busy.solution);
+  return <div className="grid"><section className="card panel" aria-busy={!!w.busy.challenge}><h2 className="ttl">Challenge</h2><div className="lbl">Difficulty</div><Seg<Difficulty> value={w.challengeDifficulty} options={DIFFS} onChange={d => { if (!locked) void w.loadChallenge(d); }} />
+    {!w.project && <label className="helper">Language <select aria-label="Exercise language" value={w.challengeLanguage} disabled={locked} onChange={e => void w.loadChallenge(w.challengeDifficulty,e.target.value as Language)}>{['python','javascript','html','css'].map(l => <option key={l}>{l}</option>)}</select></label>}
+    <button className="btn" disabled={!w.health || locked} onClick={() => void w.loadChallenge()}>Load challenge</button>
+    {w.errors.challenge && <ErrBanner title="Couldn't load an exercise" text={w.errors.challenge} />}
+    {w.busy.challenge ? <Lines n={4} /> : w.exercise ? <><h3>{w.exercise.title}</h3><div className="row"><Pill>{w.general ? 'General exercise' : 'Matched to your project'}</Pill><Pill>{w.exercise.language}</Pill></div><p>{w.exercise.objective}</p><p className="helper">{w.exercise.verification_policy}</p></> : <Empty mascot="challenge" title="Your next challenge awaits" text="Load an exercise to practice. A local AI model is not required." size={5} />}
+    {w.exercise && <><div className="lbl">Hints</div>{Array.from({length:w.exercise.hint_count},(_,i) => <div className="hint" key={i}><Ic d={i < w.hints.length ? I.check : I.lock} s={16} /><span>Hint {i+1}: {w.hints[i] || 'Locked'}</span></div>)}<button className="btn" disabled={locked || w.hints.length >= w.exercise.hint_count} onClick={() => void w.revealHint()}>Reveal next hint</button></>}
+    {w.errors.hint && <ErrBanner title="Hint unavailable" text={w.errors.hint} />}</section>
+    <section className="card panel"><h2 className="ttl">Your fix</h2>{w.exercise ? <CodeEditor key={w.exercise.id} value={w.answer} language={w.exercise.language} onChange={w.editAnswer} readOnly={!!w.busy.submit} /> : <Empty title="No exercise selected" text="Load a challenge to start editing." />}
+      {w.errors.submit && <ErrBanner title="Check failed" text={w.errors.submit} />}
+      {w.result && <div className="err verification" role="status" style={{borderColor:w.result.correct ? 'var(--success)' : 'var(--warning)'}}><div><b>{w.result.correct ? 'Passed' : 'Not met'}</b><p>{w.result.feedback}</p>{w.result.limitations.map((l,i) => <p className="helper" key={i}>{l}</p>)}</div></div>}
+      <button className="btn pri" disabled={!w.exercise || locked || !w.answer.trim()} onClick={() => void w.submit()}>{w.busy.submit ? 'Checking…' : 'Check my solution'}</button>
+      {w.exercise && <button className="btn" disabled={locked || !!w.solution} onClick={() => void w.revealSolution()}>Reveal solution</button>}
+      {w.errors.solution && <ErrBanner title="Solution unavailable" text={w.errors.solution} />}
+      {w.solution && <section><h3>Reviewed solution</h3><CodeEditor value={w.solution} language={w.exercise?.language} readOnly /><p className="helper">Use this to understand the correction. Your own answer is unchanged.</p></section>}
+    </section></div>;
 }
 
-export function SetupDrawer({ view, onClose }: { view: ViewState; onClose: () => void }) {
-  const rows = ["Model status", "Runtime health", "Storage and memory"];
+export function SetupDrawer({ workspace: w, onClose }: { workspace: Workspace; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const drawer = dialog.current; const previous = document.activeElement as HTMLElement;
-    drawer?.showModal();
-    return () => { drawer?.close(); previous?.focus(); };
-  }, []);
-  return <dialog ref={dialog} className="drawer" aria-label="Setup" onCancel={onClose}><div className="row"><h2 className="ttl" style={{ flex: 1 }}>Setup</h2><button className="btn" onClick={onClose}>Close</button></div>
-    {rows.map(r => <div key={r} className="hint">{r}{view === "loading" ? <span style={{ marginLeft: "auto", width: 80 }}><Sk /></span> : <span style={{ marginLeft: "auto" }}>Not checked</span>}</div>)}
-    <div className="lbl">Offline readiness</div>{["Model weights present", "Fonts and assets local", "Restart works offline"].map(r => <div key={r} className="hint">{r}<span style={{ marginLeft: "auto" }}>Not checked</span></div>)}
-    {view === "error" && <ErrBanner title="Runtime unreachable" text="Start the local model runtime, then check again." />}<Tip /></dialog>;
+  useEffect(() => { const drawer = dialog.current; const previous = document.activeElement as HTMLElement; drawer?.showModal(); return () => { drawer?.close(); previous?.focus(); }; }, []);
+  return <dialog ref={dialog} className="drawer" aria-label="Setup" onCancel={onClose}><div className="row"><h2 className="ttl" style={{flex:1}}>Setup</h2><button className="btn" onClick={onClose}>Close</button></div>
+    <div className="hint">Backend <span>{w.health?.backend || 'Unreachable'}</span></div><div className="hint">Local model <span>{w.health?.ai.status || 'Not checked'}</span></div><div className="hint">Model name <span>{w.health?.ai.model || 'Not available'}</span></div><div className="hint">Session storage <span>{w.health?.storage || 'Not checked'}</span></div>
+    <button className="btn" disabled={w.checking} onClick={() => void w.checkHealth()}>{w.checking ? 'Checking…' : 'Check connection'}</button>
+    {w.healthError && <ErrBanner title="Backend unreachable" text={w.healthError} />}{w.health && w.health.ai.status !== 'ready' && <p className="helper">Start Ollama with the installed local model to enable explanations. Projects and exercises work independently.</p>}
+    <div className="lbl">Offline readiness</div><p className="helper">Fonts and application assets are bundled locally. A full offline restart still needs checking on your demo laptop.</p><Tip /></dialog>;
 }

@@ -1,37 +1,24 @@
-# Existing frontend to backend mapping
+# Frontend/backend integration
 
-The repository currently contains a UI built around props in `src/types.ts`; this PR
-adds backend APIs without changing those components or wiring them to HTTP yet.
+`src/api.ts` defines the typed HTTP client; `src/useWorkspace.ts` owns project, source, explanation, and exercise state. `App.tsx` shares that state between screens so navigation retains the current session.
 
-Use the backend agreement and `openapi.json` as the wire contract. Keep a small
-mapping layer in the future frontend API client rather than assuming UI props equal
-server JSON. For example:
-
-| Existing UI prop | Backend field / behavior |
+| UI action | Backend request |
 |---|---|
-| `FileNode.path`, `children` | `file_tree.path`, `children`; directory nodes have no source |
-| File language/status | Lookup metadata by `file_id`; skipped files include a reason |
-| `Relationship.from`, `to` | `source`, `target`; use IDs when resolving a local file |
-| Explanation `level: selection` | Request `scope: block` with original inclusive line range |
-| Explanation `summary`, `concepts` | Identical public fields |
-| Explanation `steps` | Map `sections` to `{lines: [start_line, end_line], text: explanation}` |
-| Explanation `limits` | `limitations` |
-| Explanation relationships | From project metadata/context, not invented by the model |
-| Challenge `concept_tags` | `concepts` |
-| Challenge `instructions` | `objective` plus optional title |
-| Challenge `hint_levels` | Fetch the hints endpoint only when requested |
-| Challenge `is_general` | Selection response `match.kind === "general"` |
-| Submission `overall` | `correct ? "passed" : "not_met"`; no partial scoring exists |
-| Submission criteria | One structural requirement with `met: correct`, plus feedback |
+| Setup / connection status | `GET /api/health` |
+| Upload project | `POST /api/projects/upload` with multipart `file` |
+| Select source file | `GET /api/projects/{project_id}/files/{file_id}` |
+| Explain project/file/selection | `POST /api/analyze` with scope `project`, `file`, or `block` |
+| Start/load exercise | `POST /api/challenges/select` |
+| Check answer | `POST /api/challenges/submit` |
+| Reveal next hint | `GET /api/challenges/{id}/hints/{level}` |
+| Reveal reference solution | `GET /api/challenges/{id}/solution` |
 
-Keep `file_id` with UI selection state to retrieve source or request analysis. Backend
-source content is returned as `code`. Explanation sections can reference related files,
-so do not highlight every section against the currently selected file blindly.
+Project responses supply `file_tree`, source metadata, relationships, and upload warnings. Skipped files display their reason. CodeMirror selections send inclusive original line numbers; explanation sections resolve their own `file_id` before highlighting. Stale source and explanation responses cannot replace a newer selection.
 
-The model readiness status is separate from backend readiness. Disable AI controls
-when unavailable, but retain browsing and independent exercises. Do not expose a
-reference solution before the user explicitly asks to reveal it.
+Challenge instructions come from `objective`; the general fallback is identified by `match.kind`. Hints are fetched only on request and the reference solution appears separately without overwriting the learner's answer. Verification displays `correct`, `feedback`, and `limitations`; it makes no execution claim.
 
-The local backend can serve a built frontend at root `dist` or `frontend/dist` when
-started after the build. Development remains two processes on ports 5173 and 8000.
-The UI's existing offline font/assets setup remains unchanged.
+The client uses relative `/api` URLs. Vite proxies these to `http://127.0.0.1:8000` in development. Production builds in root `dist` are served by FastAPI when present at startup. API errors display the backend's detail; invalid responses, network failures, and timeouts receive explicit messages.
+
+Backend readiness and AI readiness remain separate. AI controls require a ready model, while browsing and practice remain usable without Ollama. Health is refreshed every 15 seconds and can be checked manually in Setup.
+
+The backend contract remains in `openapi.json` and `backend-agreement.md`. See the repository README for build, startup, and verification commands.
