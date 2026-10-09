@@ -1,0 +1,1 @@
+export default { content: ["./index.html","./src/**/*.{ts,tsx}"], theme: { extend: { colors: { bg:"var(--bg)", surface:"var(--surface)", line:"var(--border)", ink:"var(--text)", muted:"var(--muted)", accent:"var(--accent)" }, fontFamily: { sans:["Manrope","system-ui","sans-serif"], mono:["JetBrains Mono","monospace"] }, borderRadius:{ DEFAULT:"0" } } }, plugins: [] };
