@@ -1,25 +1,46 @@
 import { useEffect, useRef, useState } from "react";
 import { CodeEditor } from "./Code";
 import { AnimatedSloth, Empty, ErrBanner, Ic, I, Limits, Pill, Seg, Sk, Tip } from "./ui";
-import { uploadError } from "./upload";
+import { uploadError, sourceUploadError, folderFiles } from "./upload";
+import type { InputMode, ProjectInput } from './upload';
 import type { Difficulty, Language, ViewState } from "./types";
 import type { TreeNode } from './api';
 import type { Workspace } from './useWorkspace';
 const DIFFS = [{ id: "beginner", label: "Beginner" }, { id: "intermediate", label: "Intermediate" }, { id: "experienced", label: "Experienced" }] as { id: Difficulty; label: string }[];
 const Lines = ({ n = 5 }: { n?: number }) => <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{["90%", "60%", "75%", "45%", "80%", "55%"].slice(0, n).map((w, i) => <Sk key={i} w={w} />)}</div>;
 
-export function UploadScreen({ view, onStart, errorMessage, disabled }: { view: ViewState; onStart: (file: File, difficulty: Difficulty) => void; errorMessage?: string; disabled?: boolean }) {
-  const [file, setFile] = useState<File | null>(null); const [d, setD] = useState<Difficulty>("beginner");
+export function UploadScreen({ view, onStart, errorMessage, disabled }: { view: ViewState; onStart: (input: ProjectInput, difficulty: Difficulty) => void; errorMessage?: string; disabled?: boolean }) {
+  const [files, setFiles] = useState<File[]>([]); const [d, setD] = useState<Difficulty>("beginner");
+  const [mode, setMode] = useState<InputMode>('zip');
+  const [code, setCode] = useState(''); const [language, setLanguage] = useState<Language>('python');
+  const [filename, setFilename] = useState('snippet.py'); const [excluded, setExcluded] = useState(0);
+  const fileInput = useRef<HTMLInputElement>(null); const folderInput = useRef<HTMLInputElement>(null);
+  const loading = view === 'loading';
+  useEffect(() => { folderInput.current?.setAttribute('webkitdirectory', ''); }, [mode]);
   const [error, setError] = useState<string | null>(null); const [dragging, setDragging] = useState(false);
-  const choose = (files: File[]) => { const message = uploadError(files); setError(message); setFile(message ? null : files[0]); };
+  const choose = (incoming: File[]) => {
+    const chosen = mode === 'folder' ? folderFiles(incoming) : incoming;
+    setExcluded(incoming.length - chosen.length);
+    const message = mode === 'zip' ? uploadError(chosen) : sourceUploadError(chosen, mode === 'folder');
+    setError(message); setFiles(message ? [] : chosen);
+  };
+  const pasteError = !code.trim() ? 'Paste some source code first.' : new TextEncoder().encode(code).length > 100 * 1024 ? 'Pasted code exceeds the 100 KB limit.' : code.includes('\0') ? 'Source code cannot contain NUL bytes.' : !filename.trim() ? 'Provide a filename.' : null;
+  const start = () => {
+    if (mode === 'paste') { if (pasteError) { setError(pasteError); return; } onStart({ mode, code, language, filename: filename.trim() }, d); }
+    else if (files.length) onStart({ mode, files }, d);
+  };
   return <div className="grid upload-grid"><section className="card panel upload-panel" aria-busy={view === "loading"}><div className="panel-heading"><div><span className="lbl">01 / Your workspace</span><h2 className="ttl">Bring your code.</h2></div><Ic d={I.file} s={24} /></div>
-    <label className={"drop" + (dragging ? " dragging" : "") + (file ? " selected" : "")} onDragOver={e => { e.preventDefault(); if (view !== "loading") setDragging(true); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false); }} onDrop={e => { e.preventDefault(); setDragging(false); if (view !== "loading") choose(Array.from(e.dataTransfer.files)); }}>
-      <span className="upload-icon"><Ic d={file ? I.check : I.up} s={28} /></span><b>{file ? file.name : "Drop your project here"}</b><span>{file ? (file.size / 1024).toFixed(0) + " KB · ZIP archive selected" : "One ZIP. A clearer picture of your code."}</span><span className="btn">{file ? "Choose another ZIP" : "Choose ZIP archive"}<Ic d={I.up} s={16} /></span><input type="file" accept=".zip" className="file-input" aria-label="Choose project ZIP archive" disabled={view === "loading"} onChange={e => { if (e.target.files?.length) choose(Array.from(e.target.files)); e.target.value = ""; }} /></label>
+    <div className="seg" aria-label="Code input method">{([['zip','ZIP archive'],['files','Files'],['folder','Folder'],['paste','Paste code']] as const).map(([id,label]) => <button key={id} className={mode === id ? 'a' : ''} aria-pressed={mode === id} disabled={loading || disabled} onClick={() => { setMode(id); setFiles([]); setError(null); setExcluded(0); }}>{label}</button>)}</div>
+    {mode === 'paste' ? <div className="paste-input"><div className="row"><label>Language <select aria-label="Pasted code language" value={language} disabled={loading} onChange={e => { const lang = e.target.value as Language; setLanguage(lang); setFilename(`snippet.${{python:'py',javascript:'js',html:'html',css:'css'}[lang]}`); }}><option value="python">Python</option><option value="javascript">JavaScript</option><option value="html">HTML</option><option value="css">CSS</option></select></label><label>Filename <input aria-label="Pasted code filename" value={filename} maxLength={200} disabled={loading} onChange={e => setFilename(e.target.value)} /></label></div><label htmlFor="pasted-source">Source code</label><textarea id="pasted-source" value={code} disabled={loading} placeholder="Paste your code here…" onChange={e => { setCode(e.target.value); setError(null); }} spellCheck={false} /><p className="helper">Up to 100 KB of UTF-8 source. The selected language determines how it is parsed.</p></div> : <label className={"drop" + (dragging ? " dragging" : "") + (files.length ? " selected" : "")} onDragOver={e => { e.preventDefault(); if (!loading && mode !== 'folder') setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); if (loading) return; if (mode === 'folder') { setError('Use Choose folder to preserve the folder paths.'); return; } if (Array.from(e.dataTransfer.items).some(item => item.webkitGetAsEntry?.()?.isDirectory)) { setError('Use the Folder option to select directories.'); return; } choose(Array.from(e.dataTransfer.files)); }}>
+      <span className="upload-icon"><Ic d={files.length ? I.check : I.up} s={28} /></span><b>{files.length === 1 ? files[0].name : files.length ? `${files.length} files selected` : mode === 'folder' ? 'Choose your project folder' : mode === 'files' ? 'Drop source files here' : 'Drop your project ZIP here'}</b><span>{files.length ? `${(files.reduce((n,f) => n+f.size,0)/1024).toFixed(0)} KB selected` : mode === 'folder' ? 'Keep relative paths and file relationships.' : mode === 'files' ? 'One file or several source files.' : 'One ZIP. A clearer picture of your code.'}</span><span className="btn">{mode === 'folder' ? 'Choose folder' : mode === 'files' ? 'Choose source files' : 'Choose ZIP archive'}<Ic d={I.up} s={16} /></span>
+      {mode === 'folder' ? <input key="folder" ref={folderInput} type="file" multiple className="file-input" aria-label="Choose project folder" disabled={loading || disabled} onChange={e => { if (e.target.files?.length) choose(Array.from(e.target.files)); e.target.value = ''; }} /> : <input key="files" ref={fileInput} type="file" accept={mode === 'zip' ? '.zip' : '.py,.js,.html,.htm,.css'} multiple={mode === 'files'} className="file-input" aria-label={mode === 'zip' ? 'Choose project ZIP archive' : 'Choose source files'} disabled={loading || disabled} onChange={e => { if (e.target.files?.length) choose(Array.from(e.target.files)); e.target.value = ''; }} />}
+    </label>}
+    {excluded > 0 && <p className="helper">{excluded} dependency, generated, or environment files excluded before upload.</p>}
     {error && <ErrBanner title="Couldn't select this project" text={error} />}
     <div className="lbl">Upload limits</div><Limits /><div className="lbl">Supported languages</div><div className="row">{["HTML", "CSS", "JavaScript", "Python"].map(l => <Pill key={l}>{l}</Pill>)}</div><div style={{ color: "var(--muted)", fontSize: 14 }}>Other files are skipped.</div>
     <div className="lbl">Your learning pace</div><Seg<Difficulty> value={d} options={DIFFS} onChange={setD} /><p className="helper">{d === "beginner" ? "Start with the basics, with a little more guidance." : d === "intermediate" ? "Connect the concepts and take on trickier bugs." : "Less guidance. More room to work things out."}</p>
-    {view === "error" && <ErrBanner title="Upload failed" text={errorMessage || "Check the upload limits above, then choose another ZIP archive."} />}
-    {view === "loading" ? <div role="status"><div className="bar" role="progressbar" aria-label="Analyzing locally" /><p className="helper">Indexing your project locally…</p></div> : <button className="btn pri lg" disabled={!file || disabled} onClick={() => file && onStart(file, d)}>Explore project <span aria-hidden="true">→</span></button>}<p className="helper">{disabled ? 'Wait for the current explanation to finish.' : file ? "Your archive will be checked and indexed on this device." : "Choose a ZIP to explore your project."}</p></section>
+    {view === "error" && <ErrBanner title="Upload failed" text={errorMessage || "Check the upload limits above, then try again."} />}
+    {loading ? <div role="status"><div className="bar" role="progressbar" aria-label="Analyzing locally" /><p className="helper">Indexing your project locally…</p></div> : <button className="btn pri lg" disabled={disabled || (mode === 'paste' ? !code.trim() : !files.length)} onClick={start}>Explore project <span aria-hidden="true">→</span></button>}<p className="helper">{disabled ? 'Wait for the current explanation to finish.' : 'Your source will be checked and indexed on this device.'}</p></section>
     <div className="welcome-column"><section className="card panel welcome-panel"><div className="companion"><div><span className="lbl">Meet your coding companion</span><h2>A little patience.<br /><em>A lot of progress.</em></h2><p>Big projects make more sense<br />one small step at a time.</p></div><AnimatedSloth /><span className="companion-caption"><span className="dot" />Ready when you are.</span></div><div className="workflow"><h3>From “what?” to “got it.”</h3><ol>{[["Explore", "Get your bearings in the project."], ["Understand", "Turn code into plain-language explanations."], ["Practice", "Work through a bug, with hints if you need them."], ["Reflect", "Learn from each fix and keep moving."]].map(([title, text], i) => <li key={title}><span className="workflow-number">0{i + 1}</span><div><b>{title}</b><span>{text}</span></div></li>)}</ol></div></section><Tip /></div></div>;
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { post, request, uploadProject } from './api';
+import { post, request, ingestProject } from './api';
+import type { ProjectInput } from './upload';
 import type { ChallengeSelection, Exercise, Explanation, Health, Project, Scope, SourceFile, Verification } from './api';
 import type { Difficulty, Language } from './types';
 
@@ -50,15 +51,16 @@ export function useWorkspace() {
     } catch (e) { if (epoch === sourceEpoch.current) fail('source', e); }
     finally { if (epoch === sourceEpoch.current) mark('source', false); }
   }
-  async function upload(file: File, level: Difficulty) {
+  async function upload(input: ProjectInput, level: Difficulty) {
     mark('upload', true); fail('upload');
     try {
-      const data = await uploadProject(file);
+      const data = await ingestProject(input);
       ++sourceEpoch.current; ++explanationEpoch.current; ++exerciseEpoch.current;
       setProject(data); setDifficulty(level); setChallengeDifficulty(level);
       setSelected(null); setCode(''); setExplanation(null); setRange(null);
       setExercise(null); setAnswer(''); setHints([]); setSolution(''); setResult(null);
       setErrors({});
+      setBusy({ upload: true });
       const first = data.files.find(f => f.status !== 'skipped');
       if (first) await selectFile(first, data);
       return true;

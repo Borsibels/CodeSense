@@ -1,4 +1,5 @@
 import type { Difficulty, Language } from './types';
+import type { ProjectInput } from './upload';
 
 export interface SourceFile { file_id: string; path: string; language: Language | null; status: 'analyzed' | 'partial' | 'skipped'; reason: string | null; concepts: string[] }
 export interface TreeNode { name: string; path: string; type: 'directory' | 'file'; file_id: string | null; status: string | null; children: TreeNode[] }
@@ -41,4 +42,14 @@ export function post<T>(path: string, body: unknown): Promise<T> {
 export function uploadProject(file: File): Promise<Project> {
   const data = new FormData(); data.append('file', file);
   return request<Project>('/projects/upload', { method: 'POST', body: data });
+}
+export function ingestProject(input: ProjectInput): Promise<Project> {
+  if (input.mode === 'paste') return post<Project>('/projects/snippet', { code: input.code, language: input.language, filename: input.filename });
+  if (input.mode === 'zip') return uploadProject(input.files[0]);
+  const data = new FormData();
+  input.files.forEach(file => data.append('files', file));
+  const paths = input.files.map(file => input.mode === 'folder' ? file.webkitRelativePath || file.name : file.name);
+  data.append('paths', JSON.stringify(paths));
+  data.append('name', input.mode === 'folder' ? paths[0].split('/')[0] : input.files.length === 1 ? input.files[0].name : 'Uploaded files');
+  return request<Project>('/projects/files', { method: 'POST', body: data });
 }
