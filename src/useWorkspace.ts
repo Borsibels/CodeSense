@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { post, request, ingestProject } from './api';
+import { post, request, ingestProject, analyzeProject, analysisBody } from './api';
 import type { ProjectInput } from './upload';
-import type { ChallengeSelection, Exercise, Explanation, Health, Project, Scope, SourceFile, Verification } from './api';
+import type { Analysis, ChallengeSelection, Exercise, Health, Project, Scope, SourceFile, Verification } from './api';
 import type { Difficulty, Language } from './types';
 
-type Operation = 'upload' | 'source' | 'analysis' | 'challenge' | 'submit' | 'hint' | 'solution';
+type Operation = 'upload' | 'source' | 'analysis' | 'problems' | 'challenge' | 'submit' | 'hint' | 'solution';
 export function useWorkspace() {
   const [project, setProject] = useState<Project | null>(null);
   const [selected, setSelected] = useState<SourceFile | null>(null);
@@ -12,7 +12,8 @@ export function useWorkspace() {
   const [range, setRange] = useState<{ start_line: number; end_line: number } | null>(null);
   const [scope, setScope] = useState<Scope>('file');
   const [difficulty, setDifficulty] = useState<Difficulty>('beginner');
-  const [explanation, setExplanation] = useState<Explanation | null>(null);
+  const [explanation, setExplanation] = useState<Analysis | null>(null);
+  const [problems, setProblems] = useState<Analysis | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [healthError, setHealthError] = useState('');
   const [checking, setChecking] = useState(false);
@@ -26,7 +27,7 @@ export function useWorkspace() {
   const [challengeLanguage, setChallengeLanguage] = useState<Language>('python');
   const [busy, setBusy] = useState<Partial<Record<Operation, boolean>>>({});
   const [errors, setErrors] = useState<Partial<Record<Operation, string>>>({});
-  const sourceEpoch = useRef(0), explanationEpoch = useRef(0), exerciseEpoch = useRef(0);
+  const sourceEpoch = useRef(0), explanationEpoch = useRef(0), problemsEpoch = useRef(0), exerciseEpoch = useRef(0);
   const mark = (op: Operation, value: boolean) => setBusy(s => ({ ...s, [op]: value }));
   const fail = (op: Operation, error: unknown = '') => setErrors(s => ({ ...s, [op]: error instanceof Error ? error.message : String(error) }));
 
@@ -40,9 +41,9 @@ export function useWorkspace() {
 
   async function selectFile(file: SourceFile, active = project, preserveExplanation = false) {
     if (!active) return;
-    const epoch = ++sourceEpoch.current; ++explanationEpoch.current;
-    setSelected(file); setCode(''); setRange(null); if (!preserveExplanation) { setExplanation(null); setScope('file'); }
-    fail('source'); fail('analysis'); mark('analysis', false);
+    const epoch = ++sourceEpoch.current; ++explanationEpoch.current; ++problemsEpoch.current;
+    setSelected(file); setCode(''); setRange(null); if (!preserveExplanation) { setExplanation(null); setProblems(null); setScope('file'); }
+    fail('source'); fail('analysis'); mark('analysis', false); fail('problems'); mark('problems', false);
     if (file.status === 'skipped') { mark('source', false); return; }
     mark('source', true);
     try {
@@ -55,9 +56,9 @@ export function useWorkspace() {
     mark('upload', true); fail('upload');
     try {
       const data = await ingestProject(input);
-      ++sourceEpoch.current; ++explanationEpoch.current; ++exerciseEpoch.current;
+      ++sourceEpoch.current; ++explanationEpoch.current; ++problemsEpoch.current; ++exerciseEpoch.current;
       setProject(data); setDifficulty(level); setChallengeDifficulty(level);
-      setSelected(null); setCode(''); setExplanation(null); setRange(null);
+      setSelected(null); setCode(''); setExplanation(null); setProblems(null); setRange(null);
       setExercise(null); setAnswer(''); setHints([]); setSolution(''); setResult(null);
       setErrors({});
       setBusy({ upload: true });
@@ -68,7 +69,7 @@ export function useWorkspace() {
     finally { mark('upload', false); }
   }
   function changeScope(value: Scope) { ++explanationEpoch.current; setScope(value); setExplanation(null); fail('analysis'); mark('analysis', false); }
-  function changeDifficulty(value: Difficulty) { ++explanationEpoch.current; setDifficulty(value); setExplanation(null); fail('analysis'); mark('analysis', false); }
+  function changeDifficulty(value: Difficulty) { ++explanationEpoch.current; ++problemsEpoch.current; setDifficulty(value); setExplanation(null); setProblems(null); fail('analysis'); mark('analysis', false); fail('problems'); mark('problems', false); }
   async function explain(value = scope) {
     if (!project) return;
     if (value !== 'project' && (!selected || selected.status === 'skipped')) return;
@@ -76,12 +77,22 @@ export function useWorkspace() {
     const epoch = ++explanationEpoch.current;
     setScope(value); mark('analysis', true); fail('analysis'); setExplanation(null);
     try {
-      const body = { project_id: project.project_id, scope: value, difficulty,
-        ...(value !== 'project' ? { file_id: selected!.file_id } : {}), ...(value === 'block' ? range : {}) };
-      const data = await post<Explanation>('/analyze', body);
+      const body = analysisBody(value === 'project' ? 'overview' : 'explain', difficulty, value === 'project' ? null : selected, value === 'block' ? range : null);
+      const data = await analyzeProject(project.project_id, body);
       if (epoch === explanationEpoch.current) setExplanation(data);
     } catch (e) { if (epoch === explanationEpoch.current) fail('analysis', e); }
     finally { if (epoch === explanationEpoch.current) mark('analysis', false); }
+  }
+  // Looks for possible problems in the selected lines if there are any, otherwise in the whole file.
+  async function checkProblems() {
+    if (!project || !selected || selected.status === 'skipped') return;
+    const epoch = ++problemsEpoch.current;
+    mark('problems', true); fail('problems'); setProblems(null);
+    try {
+      const data = await analyzeProject(project.project_id, analysisBody('debug', difficulty, selected, range));
+      if (epoch === problemsEpoch.current) setProblems(data);
+    } catch (e) { if (epoch === problemsEpoch.current) fail('problems', e); }
+    finally { if (epoch === problemsEpoch.current) mark('problems', false); }
   }
   async function loadChallenge(level = challengeDifficulty, language = challengeLanguage) {
     if (!project) { fail('challenge', 'Add source code first so the exercise language can be detected.'); return; }
@@ -97,7 +108,7 @@ export function useWorkspace() {
       if (epoch !== exerciseEpoch.current) return;
       if (!data.challenge) throw new Error(data.reason || 'No verified exercise matches this request.');
       setExercise(data.challenge); setAnswer(data.challenge.starter_code); setChallengeLanguage(data.challenge.language);
-      if (difficulty !== level) { setDifficulty(level); ++explanationEpoch.current; setExplanation(null); }
+      if (difficulty !== level) { setDifficulty(level); ++explanationEpoch.current; ++problemsEpoch.current; setExplanation(null); setProblems(null); }
       setGeneral(data.match?.kind === 'general');
     } catch (e) { if (epoch === exerciseEpoch.current) fail('challenge', e); }
     finally { if (epoch === exerciseEpoch.current) mark('challenge', false); }
@@ -127,8 +138,8 @@ export function useWorkspace() {
     finally { mark('solution', false); }
   }
   function editAnswer(value: string) { setAnswer(value); setResult(null); }
-  return { project, selected, code, range, setRange, scope, changeScope, difficulty, changeDifficulty, explanation,
+  return { project, selected, code, range, setRange, scope, changeScope, difficulty, changeDifficulty, explanation, problems,
     health, healthError, checking, checkHealth, exercise, general, answer, editAnswer, hints, solution, result,
-    challengeDifficulty, challengeLanguage, busy, errors, upload, selectFile, explain, loadChallenge, submit, revealHint, revealSolution };
+    challengeDifficulty, challengeLanguage, busy, errors, upload, selectFile, explain, checkProblems, loadChallenge, submit, revealHint, revealSolution };
 }
 export type Workspace = ReturnType<typeof useWorkspace>;

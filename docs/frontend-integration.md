@@ -9,13 +9,18 @@
 | Upload source files / folder | `POST /api/projects/files` with repeated multipart `files`, JSON `paths`, and display `name` |
 | Paste code | `POST /api/projects/snippet` with `code`, `language`, and `filename` |
 | Select source file | `GET /api/projects/{project_id}/files/{file_id}` |
-| Explain project/file/selection | `POST /api/analyze` with scope `project`, `file`, or `block` |
+| Explain project/file/selection | `POST /api/projects/{project_id}/analysis` with `intent` `overview` (Project) or `explain` (File, Selection), `depth`, `file_id`, and for Selection `start_line`/`end_line` |
+| Check for possible problems | The same route with `intent: "debug"`; uses the selected lines if any, otherwise the whole file |
 | Start/load exercise | `POST /api/challenges/generate` |
 | Check answer | `POST /api/challenges/submit` |
 | Reveal next hint | `GET /api/challenges/{id}/hints/{level}` |
 | Reveal reference solution | `GET /api/challenges/{id}/solution` |
 
-Project responses supply `file_tree`, source metadata, relationships, and upload warnings. Skipped files display their reason. CodeMirror selections send inclusive original line numbers; explanation sections resolve their own `file_id` before highlighting. Stale source and explanation responses cannot replace a newer selection.
+Project responses supply `file_tree`, source metadata, relationships, and upload warnings. Skipped files display their reason. CodeMirror selections send inclusive original line numbers. Analysis steps and findings carry a `file_path` and verified lines; `src/analysisText.ts#stepLocation` turns only verified locations (`in_context`, `outline_only`, `file_only`) into clickable references, which open the file by path and highlight the lines. A `rejected` or `none` location is never rendered as a link. Stale source, explanation and problem-check responses cannot replace a newer selection (separate epochs).
+
+**Analysis rendering** (`src/analysis.tsx`). AI-written text carries an "AI-written" badge; anything CodeSense computed or copied from the real file carries "Checked by CodeSense" (relationships, glossary, evidence excerpts, verification, tiers, rule-based checks). The UI shows `selection.note` whenever the analysis is wider than the selection (the backend maps lines to the enclosing function/class, else the whole file). Possible problems are worded as suspicions: a `source_verified` finding is labelled "Location verified", never as a confirmed bug, and `no_clear_problem` is labelled as not proof. The `Difficulty` value `experienced` is sent as `depth: "advanced"`. Possible problems are separate from the Debug stage's missing-line challenges and do not feed them.
+
+Errors: `request()` reads both envelopes, the host's `{code, detail}` and the engine's `{error: {code, message}}`. Analysis requests use a 330 s timeout (up to three local model calls); everything else keeps 100 s. Only one model request can run at a time; a second returns `AI_BUSY`, and the workspace disables the other AI actions while one is pending.
 
 Challenge instructions come from `objective`; the general fallback is identified by `match.kind`. Hints are fetched only on request and the reference solution appears separately without overwriting the learner's answer. Verification displays `correct`, `feedback`, and `limitations`; it makes no execution claim.
 

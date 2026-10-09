@@ -3,6 +3,7 @@ import asyncio
 import io
 import json
 import zipfile
+from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -15,11 +16,22 @@ from .projects import MAX_UPLOAD, MAX_ENTRIES, safe_path, ProjectError, ingest_a
 from .middleware import BodyLimitMiddleware
 from .challenges import ChallengeEngine, ChallengeSelect, ChallengeSubmit
 from .missing_line import generate as generate_missing_line
+from .analysis_bridge import AnalysisBridge, AnalysisBody, BridgeAnalysisResponse, BridgeError
 
-def create_app(explainer=None, inference_timeout=90):
-    app = FastAPI(title='CodeSense Backend', version='0.2.0')
+def create_app(explainer=None, inference_timeout=90, analysis=None):
+    @asynccontextmanager
+    async def lifespan(app):
+        try:
+            yield
+        finally:
+            await app.state.analysis.aclose()
+
+    app = FastAPI(title='CodeSense Backend', version='0.3.0', lifespan=lifespan)
     app.state.explainer = explainer or OllamaExplainer()
-    app.state.generation_lock = asyncio.Lock()
+    # Project analysis (Phase 4.5 engine) reads the same model settings as the explainer.
+    app.state.analysis = analysis or AnalysisBridge(ollama_settings=getattr(app.state.explainer, 'settings', None))
+    # One lock gates every local-model request, whichever route makes it.
+    app.state.generation_lock = app.state.analysis.lock
     app.state.challenges = ChallengeEngine()
     app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:5173', 'http://127.0.0.1:5173'], allow_methods=['GET', 'POST', 'DELETE'], allow_headers=['Content-Type'])
@@ -27,6 +39,10 @@ def create_app(explainer=None, inference_timeout=90):
     @app.exception_handler(ProjectError)
     async def invalid_project(request, exc):
         return JSONResponse(status_code=422, content={'code':'INVALID_PROJECT', 'detail': str(exc)})
+
+    @app.exception_handler(BridgeError)
+    async def analysis_error(request, exc):
+        return JSONResponse(status_code=exc.status, content={'code':exc.code, 'detail':exc.detail}, headers=exc.headers)
 
     @app.exception_handler(KeyError)
     async def missing_project(request, exc):
@@ -47,7 +63,7 @@ def create_app(explainer=None, inference_timeout=90):
     async def health():
         adapter = app.state.explainer
         readiness = await adapter.readiness() if hasattr(adapter, 'readiness') else {'status':'unknown', 'model':None}
-        return {'backend': 'ready', 'ai':readiness, 'storage': 'temporary', 'languages': ['html', 'css', 'javascript', 'python']}
+        return {'backend': 'ready', 'ai':readiness, 'analysis':app.state.analysis.readiness(), 'storage': 'temporary', 'languages': ['html', 'css', 'javascript', 'python']}
 
     @app.post('/api/projects/upload', response_model=Project, status_code=201)
     def upload(file: UploadFile = File(...)):
@@ -147,6 +163,10 @@ def create_app(explainer=None, inference_timeout=90):
             except Exception as exc:
                 traceback.print_exc()
                 raise HTTPException(502, 'Local explanation service failed.') from exc
+
+    @app.post('/api/projects/{project_id}/analysis', response_model=BridgeAnalysisResponse)
+    async def project_analysis(project_id: str, body: AnalysisBody):
+        return await app.state.analysis.analyze(project_id, body)
 
     @app.get('/api/challenges')
     def challenge_list():

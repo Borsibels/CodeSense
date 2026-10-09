@@ -154,16 +154,22 @@ The adapter handles prompt construction, local HTTP calls and structured output.
 The backend validates the returned fields and source references. Source comments
 and strings are data, never permissions or instructions.
 
-Initial model settings: 4,096-token context, temperature 0.2, 768 output tokens,
-30-minute keep-alive. Context selection caps source at 8,000 UTF-8 bytes; the
-adapter then conservatively caps instructions, schema and payload together at
-2,800 bytes, removing related context/metadata before reducing selected source at
-line boundaries. This leaves room for output/template overhead but may be overly
-restrictive. Benchmark before increasing limits; never silently omit limitations.
+Model settings: 4,096-token context (`OLLAMA_NUM_CTX`), temperature 0.2, 768 output
+tokens for this adapter, 30-minute keep-alive. Context selection caps source at 8,000
+UTF-8 bytes; the adapter then requires instructions, schema and payload together to fit
+3,072 estimated tokens (4,096 - 768 output - 256 margin, using the engine's pessimistic
+estimator) and 6,000 bytes, removing related context/metadata before reducing selected
+source at line boundaries. Benchmark before increasing limits; never silently omit
+limitations.
 
 The backend never installs/pulls a model or calls a remote inference service.
-Ollama must be running with the local model already available. The selected model
-can be overridden with `CODESENSE_MODEL`; `:cloud` names are rejected.
+Ollama must be running with the local model already available. Configuration is shared
+with the project-analysis engine (section 7): `OLLAMA_MODEL` (default
+`qwen2.5-coder:3b`; `CODESENSE_MODEL` is honoured as a fallback when it is unset),
+`OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`) and `OLLAMA_NUM_CTX` (default
+4096). Do not set different context windows for the two paths: Ollama reloads the model
+when `num_ctx` changes. `:cloud` / `-cloud` model names are rejected. Pointing
+`OLLAMA_BASE_URL` at a non-local host is possible but makes the app no longer offline.
 
 ## 4. Challenges, hints and verification
 
@@ -220,6 +226,16 @@ Do not present a passed exercise as evidence that the uploaded application is co
 | 503 | `AI_UNAVAILABLE` | Explain local model setup/readiness; keep browsing/challenges usable |
 | 504 | `AI_TIMEOUT` | Stop loading and offer retry |
 
+`POST /api/projects/{id}/analysis` (section 7) returns more specific codes in the same
+`{code, detail}` shape: 422 `FILE_NOT_ANALYZED`, `SYMBOL_NOT_FOUND`, `NO_ANALYZABLE_SOURCE`,
+`PROMPT_TOO_MANY_TOKENS`; 503 `OLLAMA_UNAVAILABLE`, `OLLAMA_CONNECT_TIMEOUT`,
+`MODEL_NOT_INSTALLED`, `ANALYSIS_UNAVAILABLE`; 504 `GENERATION_TIMEOUT`,
+`PROJECT_PROCESSING_TIMEOUT`; 502 `OUTPUT_TRUNCATED`, `INVALID_STRUCTURED_OUTPUT`,
+`INVALID_OLLAMA_RESPONSE`, `OLLAMA_UPSTREAM_ERROR`; 500 `ANALYSIS_FAILED`. Clients that
+show `detail` need no code-specific handling. The standalone engine app
+(`app.main:app`) uses a different envelope, `{"error": {"code", "message"}}`; the
+frontend client accepts both.
+
 All these errors have `code` and human-readable `detail`. Validation errors may add
 `fields` records with `location` and `message`. Do not assume all responses are successes.
 The backend checks one generation at a time; the frontend should also disable repeat
@@ -253,13 +269,61 @@ Before calling integration complete, confirm:
 - [ ] Hints and explicit solution reveal behave as intended.
 - [ ] Full application starts and completes the workflow after an offline restart.
 
-Backend automated tests and a real server smoke check pass. The local Ollama service
-was unavailable during the smoke check, so live generation, model quality and frontend
-integration remain acceptance work, not verified results.
+Backend automated tests pass, and on 2026-10-10 the full workflow (upload, explanations,
+possible problems, missing-line challenge, hints, verification, solution) was run
+against a real local `qwen2.5-coder:3b` through the HTTP API. Model *quality* and a
+browser-driven pass of the UI remain acceptance work.
+
+## 7. Project analysis
+
+`POST /api/projects/{project_id}/analysis` reuses the uploaded session project; there
+is no second upload. Request (`extra` fields are rejected):
+
+```json
+{"intent":"explain","depth":"beginner","file_id":"file-id","start_line":7,"end_line":8}
+```
+
+| Field | Rule |
+|---|---|
+| `intent` | `overview` (project; optional focus `file_id`), `explain`, `debug` (possible problems) |
+| `depth` | `beginner` (default), `intermediate`, `advanced`; `experienced` is an alias of `advanced` |
+| `file_id` / `path` | One is required for `explain` and `debug`; `path` is transitional; both must agree |
+| `symbol` | Optional function/class (`Class.method`); not combined with lines |
+| `start_line`, `end_line` | Both or neither; inclusive original lines; must lie inside the file |
+
+The response is the engine's `AnalysisResponse` (see `/openapi.json`) plus `project_id`,
+`file_id` and `selection`:
+
+```json
+"selection": {"scope":"symbol","requested":{"start_line":7,"end_line":8},
+  "analyzed_symbol":"total","analyzed_lines":{"start_line":5,"end_line":9},
+  "expanded":true,"note":"You selected lines 7-8. CodeSense analysed the whole function 'total' ..."}
+```
+
+Rules the client must respect:
+
+- **Selection scope.** Lines map to the smallest enclosing function, method or class,
+  otherwise to the whole file (`scope: "file"`). When `expanded` is true, show `note`; it
+  is also the first `limitations` entry. `requested` is always the user's own selection.
+- **Provenance.** Fields documented as AI-generated must be labelled as such. Deterministic
+  fields (`selection`, `relationships`, `glossary`, `coverage`, `limitations`, `tier`,
+  `verification`, `evidence`, `pattern_checks`, a `debug` summary) come from CodeSense.
+- **No fabricated citations.** `explanations[].file_path/start_line/end_line` and finding
+  locations are validated against what the AI was shown; `location_status` of `rejected`
+  or `none` has null fields and must not be rendered as a source link. Evidence excerpts
+  are copied by the backend from the uploaded file.
+- **Suspicions, not bugs.** `debug` findings are possible problems. `source_verified`
+  means the cited code is real and was shown to the AI, never that a bug exists;
+  `no_clear_problem` is not proof the code is correct. These are separate from the
+  missing-line challenges, which stay in the Debug stage.
+- **Concurrency.** One local model request at a time across `/api/analyze`,
+  `/api/challenges/generate` and this route; a second request gets `429 AI_BUSY` at once.
+  Allow up to about five minutes (up to three model calls); the frontend uses 330 s.
 
 ## Team sign-off
 
-Contract version: 0.2.0. Record the chosen baseline before editing clients.
+Contract version: 0.3.0 (additive over 0.2.0: the analysis route, `analysis` in health,
+shared model configuration). Record the chosen baseline before editing clients.
 
 | Item | Accepted value or requested change |
 |---|---|

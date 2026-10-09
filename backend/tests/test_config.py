@@ -52,6 +52,28 @@ def test_blank_env_values_fall_back_to_defaults():
 
 
 @pytest.mark.parametrize(
+    "env, expected",
+    [
+        ({"CODESENSE_MODEL": "legacy:1b"}, "legacy:1b"),  # older name still works
+        ({"OLLAMA_MODEL": "new:3b"}, "new:3b"),
+        ({"OLLAMA_MODEL": "new:3b", "CODESENSE_MODEL": "legacy:1b"}, "new:3b"),  # OLLAMA_MODEL wins
+        ({"OLLAMA_MODEL": " ", "CODESENSE_MODEL": "legacy:1b"}, "legacy:1b"),  # blank = unset
+        ({"OLLAMA_MODEL": "", "CODESENSE_MODEL": ""}, "qwen2.5-coder:3b"),
+    ],
+)
+def test_model_name_prefers_ollama_model_then_codesense_model(env, expected):
+    assert OllamaSettings.from_env(env).model == expected
+
+
+@pytest.mark.parametrize("model", ["gpt-oss:cloud", "qwen3-coder:480b-cloud", "X:CLOUD"])
+def test_cloud_models_are_rejected(model):
+    with pytest.raises(ConfigError, match="cloud model"):
+        OllamaSettings(model=model)
+    with pytest.raises(ConfigError, match="cloud model"):
+        OllamaSettings.from_env({"CODESENSE_MODEL": model})
+
+
+@pytest.mark.parametrize(
     "env, variable",
     [
         ({"OLLAMA_NUM_CTX": "lots"}, "OLLAMA_NUM_CTX"),

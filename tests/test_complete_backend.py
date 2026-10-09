@@ -104,7 +104,7 @@ class FullBackendTests(unittest.TestCase):
                 return httpx.Response(200,json={'models':[{'name':'qwen2.5-coder:3b'}]})
             payload = json.loads(request.content)
             self.assertEqual(str(request.url),'http://127.0.0.1:11434/api/chat')
-            self.assertEqual(payload['options']['num_ctx'],8192)
+            self.assertEqual(payload['options']['num_ctx'],4096)
             self.assertFalse(payload['stream'])
             context = json.loads(payload['messages'][1]['content'])
             selected = context['selected']

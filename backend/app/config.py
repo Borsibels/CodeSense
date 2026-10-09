@@ -119,6 +119,9 @@ class OllamaSettings:
 
         if not self.model or not self.model.strip():
             raise ConfigError("model must not be empty")
+        # Ollama "cloud" models run on remote servers; CodeSense is offline-only.
+        if self.model.strip().lower().endswith((":cloud", "-cloud")):
+            raise ConfigError(f"model {self.model!r} is a cloud model; CodeSense only uses local models")
 
         for name in ("num_ctx", "num_predict"):
             value = getattr(self, name)
@@ -153,7 +156,8 @@ class OllamaSettings:
 
         return cls(
             base_url=read("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL, str),
-            model=read("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL, str),
+            # OLLAMA_MODEL is primary; CODESENSE_MODEL is the older name, kept as a fallback.
+            model=read("OLLAMA_MODEL", read("CODESENSE_MODEL", DEFAULT_OLLAMA_MODEL, str), str),
             num_ctx=read("OLLAMA_NUM_CTX", DEFAULT_OLLAMA_NUM_CTX, int),
             num_predict=read("OLLAMA_NUM_PREDICT", DEFAULT_OLLAMA_NUM_PREDICT, int),
             temperature=read("OLLAMA_TEMPERATURE", DEFAULT_OLLAMA_TEMPERATURE, float),

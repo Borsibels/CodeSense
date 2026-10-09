@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "CodeSense Backend",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "paths": {
     "/api/health": {
@@ -409,6 +409,55 @@
         }
       }
     },
+    "/api/projects/{project_id}/analysis": {
+      "post": {
+        "summary": "Project Analysis",
+        "operationId": "project_analysis_api_projects__project_id__analysis_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BridgeAnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/challenges": {
       "get": {
         "summary": "Challenge List",
@@ -619,6 +668,94 @@
   },
   "components": {
     "schemas": {
+      "AnalysisBody": {
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": [
+              "overview",
+              "explain",
+              "debug"
+            ],
+            "title": "Intent",
+            "default": "explain"
+          },
+          "depth": {
+            "type": "string",
+            "enum": [
+              "beginner",
+              "intermediate",
+              "advanced"
+            ],
+            "title": "Depth",
+            "default": "beginner"
+          },
+          "file_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Id"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Line"
+          },
+          "end_line": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Line"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AnalysisBody",
+        "description": "What the client asks for. ``file_id`` (or the transitional ``path``) picks the file; lines pick a selection."
+      },
       "Body_upload_api_projects_upload_post": {
         "properties": {
           "file": {
@@ -659,6 +796,221 @@
           "paths"
         ],
         "title": "Body_upload_files_api_projects_files_post"
+      },
+      "BridgeAnalysisResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "completed",
+            "title": "Status",
+            "default": "completed"
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice",
+            "description": "Deterministic reminder that AI output is advice, not proof."
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "overview",
+              "explain",
+              "debug"
+            ],
+            "title": "Intent"
+          },
+          "depth": {
+            "type": "string",
+            "enum": [
+              "beginner",
+              "intermediate",
+              "advanced"
+            ],
+            "title": "Depth"
+          },
+          "target_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target File"
+          },
+          "target_symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Target Symbols",
+            "default": []
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "`explain`/`overview`: AI-generated overview in the requested depth's language. `debug`: DETERMINISTIC (built from `debug_outcome` and `coverage`); the AI's own debug summary is discarded because it contradicted its findings."
+          },
+          "debug_outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "no_clear_problem",
+                  "possible_problems"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debug Outcome",
+            "description": "Deterministic, `debug` only. `no_clear_problem`: no finding reached the `possible_problem` tier and no rule found a problem in the code examined. This is NOT proof that the code is bug-free. `possible_problems`: at least one `possible_problem` finding or one `problem_if_assumptions_hold` pattern check exists."
+          },
+          "pattern_checks": {
+            "items": {
+              "$ref": "#/components/schemas/PatternCheckOut"
+            },
+            "type": "array",
+            "title": "Pattern Checks",
+            "description": "Deterministic, `debug` only: hits from a few hand-written rules, each with its assumptions. Not AI output."
+          },
+          "relationships": {
+            "items": {
+              "$ref": "#/components/schemas/RelationshipOut"
+            },
+            "type": "array",
+            "title": "Relationships",
+            "description": "Deterministic, `explain`/`overview` only: dependency edges around the selected file, from the project's parsers."
+          },
+          "analogy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analogy",
+            "description": "AI-generated, `beginner` explain/overview only: an everyday comparison. Optional and imperfect."
+          },
+          "explanations": {
+            "items": {
+              "$ref": "#/components/schemas/ExplanationOut"
+            },
+            "type": "array",
+            "title": "Explanations",
+            "description": "AI-generated, in order (step by step). Empty for `debug`."
+          },
+          "role_in_app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role In App",
+            "description": "AI-generated, `beginner` explain/overview only."
+          },
+          "concept_to_learn": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConceptOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI-generated, `beginner` explain/overview only."
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "type": "array",
+            "title": "Findings",
+            "description": "AI-generated suspicions with validated locations. Only for `debug`."
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumptions",
+            "description": "AI-generated: things the AI says it could not confirm."
+          },
+          "glossary": {
+            "items": {
+              "$ref": "#/components/schemas/GlossaryEntry"
+            },
+            "type": "array",
+            "title": "Glossary",
+            "description": "Deterministic, `beginner` depth only: plain-language meanings of common programming words found in the AI's text. Written by CodeSense, not by the AI, and bounded to a few entries."
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations",
+            "description": "Deterministic: what this analysis could not see or check."
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/CoverageOut"
+          },
+          "generation": {
+            "$ref": "#/components/schemas/GenerationOut"
+          },
+          "timings_ms": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Timings Ms",
+            "description": "Deterministic: project, context, inference, validation, total."
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "file_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Id"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/SelectionInfo"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "notice",
+          "intent",
+          "depth",
+          "summary",
+          "explanations",
+          "findings",
+          "assumptions",
+          "limitations",
+          "coverage",
+          "generation",
+          "timings_ms",
+          "project_id",
+          "selection"
+        ],
+        "title": "BridgeAnalysisResponse",
+        "description": "The engine's response, unchanged, plus the session identifiers and the selection disclosure."
       },
       "ChallengeSelect": {
         "properties": {
@@ -742,6 +1094,27 @@
           "code"
         ],
         "title": "ChallengeSubmit"
+      },
+      "ConceptOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "AI-generated: the programming concept's name."
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation",
+            "description": "AI-generated: what the concept means, using this code as the example."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "explanation"
+        ],
+        "title": "ConceptOut"
       },
       "Construct": {
         "properties": {
@@ -893,6 +1266,151 @@
           "project_id"
         ],
         "title": "ContextRequest"
+      },
+      "CoverageOut": {
+        "properties": {
+          "files_total": {
+            "type": "integer",
+            "title": "Files Total"
+          },
+          "full_files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Full Files",
+            "description": "Files whose whole content the AI was shown."
+          },
+          "partial_files": {
+            "items": {
+              "$ref": "#/components/schemas/PartialFileOut"
+            },
+            "type": "array",
+            "title": "Partial Files"
+          },
+          "outline_only_files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Outline Only Files",
+            "description": "Files the AI saw only as signatures."
+          },
+          "not_included_files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Not Included Files",
+            "description": "Files the AI did not see (list is bounded; see the total)."
+          },
+          "not_included_total": {
+            "type": "integer",
+            "title": "Not Included Total"
+          },
+          "excluded_files": {
+            "items": {
+              "$ref": "#/components/schemas/ExcludedRefOut"
+            },
+            "type": "array",
+            "title": "Excluded Files",
+            "description": "Archive files that were not analysed (list is bounded)."
+          },
+          "excluded_total": {
+            "type": "integer",
+            "title": "Excluded Total"
+          },
+          "context_estimated_tokens": {
+            "type": "integer",
+            "title": "Context Estimated Tokens"
+          },
+          "instruction_estimated_tokens": {
+            "type": "integer",
+            "title": "Instruction Estimated Tokens"
+          },
+          "prompt_estimated_tokens": {
+            "type": "integer",
+            "title": "Prompt Estimated Tokens"
+          },
+          "input_limit": {
+            "type": "integer",
+            "title": "Input Limit"
+          },
+          "is_estimate": {
+            "type": "boolean",
+            "const": true,
+            "title": "Is Estimate",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "files_total",
+          "full_files",
+          "partial_files",
+          "outline_only_files",
+          "not_included_files",
+          "not_included_total",
+          "excluded_files",
+          "excluded_total",
+          "context_estimated_tokens",
+          "instruction_estimated_tokens",
+          "prompt_estimated_tokens",
+          "input_limit"
+        ],
+        "title": "CoverageOut",
+        "description": "Deterministic. Built from the real project and the real prompt; the AI contributes nothing here."
+      },
+      "EvidenceOut": {
+        "properties": {
+          "source_excerpt": {
+            "type": "string",
+            "title": "Source Excerpt",
+            "description": "Deterministic: lines copied by the BACKEND from the uploaded file (never the AI's own quote), at most 15 lines starting at `excerpt_start_line`."
+          },
+          "excerpt_start_line": {
+            "type": "integer",
+            "title": "Excerpt Start Line"
+          },
+          "excerpt_end_line": {
+            "type": "integer",
+            "title": "Excerpt End Line"
+          },
+          "excerpt_matched": {
+            "type": "boolean",
+            "title": "Excerpt Matched",
+            "description": "Deterministic: whether the code the AI quoted really appears in the cited lines."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_excerpt",
+          "excerpt_start_line",
+          "excerpt_end_line",
+          "excerpt_matched"
+        ],
+        "title": "EvidenceOut"
+      },
+      "ExcludedRefOut": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "reason"
+        ],
+        "title": "ExcludedRefOut"
       },
       "Explanation": {
         "properties": {
@@ -1059,6 +1577,98 @@
         ],
         "title": "ExplanationContext"
       },
+      "ExplanationOut": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "AI-generated: short heading of this step or part."
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "AI-generated explanation of this step or part."
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path",
+            "description": "Validated against the project; null if the AI gave none or an invalid one."
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Line",
+            "description": "First line, validated against what the AI was shown; null otherwise."
+          },
+          "end_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Line",
+            "description": "Last line, validated against what the AI was shown; null otherwise."
+          },
+          "location_status": {
+            "type": "string",
+            "enum": [
+              "in_context",
+              "outline_only",
+              "file_only",
+              "none",
+              "rejected"
+            ],
+            "title": "Location Status",
+            "description": "Deterministic. `in_context`: the lines exist and were shown to the AI. `outline_only`: the range matches a symbol the AI saw only as a signature outline. `file_only`: a real file the AI was shown, no lines. `none`: no location was given. `rejected`: a location was given but is invalid (fields are null)."
+          },
+          "location_issue": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "NO_LOCATION",
+                  "FILE_NOT_IN_PROJECT",
+                  "FILE_EXCLUDED",
+                  "LINES_OUT_OF_RANGE",
+                  "LINES_NOT_IN_CONTEXT",
+                  "LINES_OUTLINE_ONLY",
+                  "EXCERPT_MISMATCH",
+                  "NO_EXCERPT"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Issue",
+            "description": "Deterministic. Why a location was rejected."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "description",
+          "location_status"
+        ],
+        "title": "ExplanationOut"
+      },
       "ExplanationSection": {
         "properties": {
           "file_id": {
@@ -1156,6 +1766,268 @@
         ],
         "title": "FileTreeNode"
       },
+      "FindingOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Deterministic: F1, F2, ... assigned after validation and triage, in display order."
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "AI-generated."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "logic",
+              "condition",
+              "off_by_one",
+              "variable_usage",
+              "edge_case",
+              "null_access",
+              "api_misuse",
+              "type_assumption",
+              "integration",
+              "other"
+            ],
+            "title": "Category",
+            "description": "AI-generated."
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem",
+            "description": "AI-generated: what may be wrong, in the requested depth's language. A suspicion, not a proven bug."
+          },
+          "what_could_happen": {
+            "type": "string",
+            "title": "What Could Happen",
+            "description": "AI-generated: the effect if the problem is real."
+          },
+          "likely_cause": {
+            "type": "string",
+            "title": "Likely Cause",
+            "description": "AI-generated: why it may happen."
+          },
+          "suggestion": {
+            "type": "string",
+            "title": "Suggestion",
+            "description": "AI-generated: a direction for fixing it."
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Severity",
+            "description": "AI-generated qualitative rating of impact if the problem is real."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "description": "AI-generated qualitative rating, NOT a probability. Forced to `low` for `unsupported` findings."
+          },
+          "verification": {
+            "type": "string",
+            "enum": [
+              "source_verified",
+              "hypothesis",
+              "unsupported"
+            ],
+            "title": "Verification",
+            "description": "Deterministic. `source_verified`: the cited file and lines exist, were shown to the AI and the quoted code matches - this does NOT prove the bug is real. `hypothesis`: the location is valid but the quote is missing or does not match. `unsupported`: the location is invalid; it is removed."
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Line"
+          },
+          "end_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Line"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_issue": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "NO_LOCATION",
+                  "FILE_NOT_IN_PROJECT",
+                  "FILE_EXCLUDED",
+                  "LINES_OUT_OF_RANGE",
+                  "LINES_NOT_IN_CONTEXT",
+                  "LINES_OUTLINE_ONLY",
+                  "EXCERPT_MISMATCH",
+                  "NO_EXCERPT"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Issue",
+            "description": "Deterministic. Why the finding is not `source_verified`."
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "possible_problem",
+              "worth_checking"
+            ],
+            "title": "Tier",
+            "description": "Deterministic presentation heuristic, NOT a correctness guarantee. `possible_problem`: shown first; the cited code was verified and nothing marked it as demo code or as a claim about unseen input, or an independent rule corroborated it. `worth_checking`: a note, shown after the possible problems; it is demoted, never hidden, and may still be a real bug (for example a genuine missing input check).",
+            "default": "worth_checking"
+          },
+          "tier_reasons": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "QUOTE_NOT_MATCHED",
+                "LOCATION_NOT_VERIFIED",
+                "IN_DEMO_CODE",
+                "INPUT_ASSUMPTION",
+                "CORROBORATED_BY_RULE"
+              ]
+            },
+            "type": "array",
+            "title": "Tier Reasons",
+            "description": "Deterministic. Why the tier was chosen. Demoting reasons: QUOTE_NOT_MATCHED, LOCATION_NOT_VERIFIED, IN_DEMO_CODE, INPUT_ASSUMPTION. Promoting: CORROBORATED_BY_RULE. May be listed even when the finding stayed a possible problem (corroboration overrides the demoting reasons)."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "category",
+          "problem",
+          "what_could_happen",
+          "likely_cause",
+          "suggestion",
+          "severity",
+          "confidence",
+          "verification"
+        ],
+        "title": "FindingOut"
+      },
+      "GenerationOut": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "prompt_version": {
+            "type": "string",
+            "title": "Prompt Version"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts",
+            "description": "Model calls made for this request (the first try, retries and the compact fallback)."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "compact"
+            ],
+            "title": "Mode",
+            "description": "`compact` means the first answer was cut off at the output limit, so a shorter one was requested."
+          },
+          "prompt_eval_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Eval Count"
+          },
+          "eval_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model",
+          "prompt_version",
+          "attempts",
+          "mode"
+        ],
+        "title": "GenerationOut"
+      },
+      "GlossaryEntry": {
+        "properties": {
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "meaning": {
+            "type": "string",
+            "title": "Meaning"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "term",
+          "meaning"
+        ],
+        "title": "GlossaryEntry"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1168,6 +2040,175 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LineRange": {
+        "properties": {
+          "start_line": {
+            "type": "integer",
+            "title": "Start Line"
+          },
+          "end_line": {
+            "type": "integer",
+            "title": "End Line"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start_line",
+          "end_line"
+        ],
+        "title": "LineRange"
+      },
+      "LineSpan": {
+        "properties": {
+          "start_line": {
+            "type": "integer",
+            "title": "Start Line"
+          },
+          "end_line": {
+            "type": "integer",
+            "title": "End Line"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_line",
+          "end_line"
+        ],
+        "title": "LineSpan"
+      },
+      "PartialFileOut": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "included_ranges": {
+            "items": {
+              "$ref": "#/components/schemas/LineRange"
+            },
+            "type": "array",
+            "title": "Included Ranges"
+          },
+          "omitted_ranges": {
+            "items": {
+              "$ref": "#/components/schemas/LineRange"
+            },
+            "type": "array",
+            "title": "Omitted Ranges"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "included_ranges",
+          "omitted_ranges"
+        ],
+        "title": "PartialFileOut"
+      },
+      "PatternCheckOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Deterministic: P1, P2, ..."
+          },
+          "rule": {
+            "type": "string",
+            "title": "Rule",
+            "description": "Deterministic: stable rule identifier, e.g. PY_INDEX_PAST_END."
+          },
+          "strength": {
+            "type": "string",
+            "enum": [
+              "problem_if_assumptions_hold",
+              "worth_checking"
+            ],
+            "title": "Strength",
+            "description": "Deterministic. `problem_if_assumptions_hold`: this is a mistake PROVIDED every assumption listed below is true. `worth_checking`: suspicious, but it depends on what the author intended."
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation",
+            "description": "Deterministic, written for the requested depth."
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumptions",
+            "description": "Deterministic: what must be true for this to be a real problem. Always shown with the hit."
+          },
+          "parser": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "heuristic"
+            ],
+            "title": "Parser",
+            "description": "`confirmed`: found with Python's own parser. `heuristic`: found with CodeSense's lightweight JavaScript scanner."
+          },
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          },
+          "start_line": {
+            "type": "integer",
+            "title": "Start Line"
+          },
+          "end_line": {
+            "type": "integer",
+            "title": "End Line"
+          },
+          "source_excerpt": {
+            "type": "string",
+            "title": "Source Excerpt",
+            "description": "Deterministic: lines copied by the backend from the uploaded file (at most 15)."
+          },
+          "excerpt_start_line": {
+            "type": "integer",
+            "title": "Excerpt Start Line"
+          },
+          "shown_to_ai": {
+            "type": "boolean",
+            "title": "Shown To Ai",
+            "description": "Deterministic: whether these lines were part of what the AI was shown."
+          },
+          "corroborates": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Corroborates",
+            "description": "Deterministic: ids of AI findings on the same lines."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "rule",
+          "strength",
+          "title",
+          "explanation",
+          "assumptions",
+          "parser",
+          "file_path",
+          "start_line",
+          "end_line",
+          "source_excerpt",
+          "excerpt_start_line",
+          "shown_to_ai"
+        ],
+        "title": "PatternCheckOut",
+        "description": "A deterministic rule hit (``bug_patterns.py``). Not AI-generated, and not proof of a bug."
       },
       "Project": {
         "properties": {
@@ -1310,6 +2351,117 @@
           "resolved"
         ],
         "title": "Relationship"
+      },
+      "RelationshipOut": {
+        "properties": {
+          "from": {
+            "type": "string",
+            "title": "From",
+            "description": "The file that refers to `to`."
+          },
+          "to": {
+            "type": "string",
+            "title": "To",
+            "description": "The project file it refers to, or the unresolved reference as written."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "uses",
+              "loads",
+              "entry_point"
+            ],
+            "title": "Kind",
+            "description": "`uses`: imports or requires. `loads`: a script, stylesheet or asset reference. `entry_point`: marks `from` as a heuristic entry point (`to` equals `from`). A file's users are the edges whose `to` is that file."
+          },
+          "resolved": {
+            "type": "boolean",
+            "title": "Resolved",
+            "description": "False when the reference does not match a file in the upload."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "kind",
+          "resolved"
+        ],
+        "title": "RelationshipOut",
+        "description": "A dependency-graph edge (mirrors the frontend's ``Relationship``). Deterministic, from the parsers: never the AI."
+      },
+      "SelectionInfo": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "project",
+              "file",
+              "symbol"
+            ],
+            "title": "Scope",
+            "description": "`project`: whole-project overview. `file`: one whole file. `symbol`: one function, method or class."
+          },
+          "requested": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LineSpan"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The learner's selection, exactly as sent. Null when no lines were selected."
+          },
+          "analyzed_symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyzed Symbol",
+            "description": "Qualified name of the function/class that was analysed, if any."
+          },
+          "analyzed_lines": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LineSpan"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Lines the analysis was centred on: the symbol, or the whole file. Null for a project overview."
+          },
+          "expanded": {
+            "type": "boolean",
+            "title": "Expanded",
+            "description": "True when `analyzed_lines` is wider than `requested`.",
+            "default": false
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "Plain-language disclosure shown whenever `expanded` is true."
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope"
+        ],
+        "title": "SelectionInfo",
+        "description": "What was asked for versus what was analysed. Deterministic: computed by the backend, never by the AI."
       },
       "SnippetRequest": {
         "properties": {

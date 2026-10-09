@@ -157,3 +157,18 @@ select{background:var(--surface);color:var(--text);border:1px solid var(--border
 
 .empty .mascot-empty{width:144px!important;height:112px;aspect-ratio:auto;background:transparent}
 .mascot-empty img{object-fit:contain!important}
+
+/* Analysis results: AI-written text and CodeSense-checked data are visibly different. */
+.analysis{display:flex;flex-direction:column;gap:12px;font-size:14px;line-height:1.6}.analysis p{margin:0}
+.analysis summary{cursor:pointer;font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.analysis details{border:1px solid var(--border);padding:10px 12px}.analysis details ul{margin:8px 0 0;padding-left:18px}
+.badge{display:inline-flex;align-items:center;min-height:20px;padding:0 7px;border:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;vertical-align:middle}
+.badge.ai{color:var(--warning);border-color:var(--warning)}.badge.checked{color:var(--success);border-color:var(--success)}
+.note{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1px solid var(--border);border-left:4px solid var(--accent);background:var(--bg);font-size:13px;line-height:1.6}.note.warn{border-left-color:var(--warning)}.note b{color:var(--text)}.note span{color:var(--muted)}
+.step,.finding{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border:1px solid var(--border);background:var(--bg)}.step>span:not(.lbl){color:var(--muted)}
+.finding header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}.finding header b{flex:1 1 100%}
+.finding.possible{border-left:4px solid var(--warning)}.finding.worth{border-left:4px solid var(--border)}.finding.rule{border-left:4px solid var(--success)}
+.facts{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;margin:0;font-size:13px}.facts dt{color:var(--muted)}.facts dd{margin:0;overflow-wrap:anywhere}
+.excerpt{margin:0;padding:8px 10px;background:var(--code-bg);border:1px solid var(--border);font:12px/1.6 'JetBrains Mono',monospace;overflow-x:auto;white-space:pre;color:var(--text)}
+.excerpt .no{color:var(--muted);user-select:none}.excerpt .hit{display:inline-block;width:100%;background:color-mix(in srgb,var(--warning) 18%,transparent)}
+.problems-block{display:flex;flex-direction:column;gap:12px;padding-top:14px;border-top:1px solid var(--border)}
+@media(max-width:480px){.facts{grid-template-columns:1fr}.facts dt{margin-top:6px}}

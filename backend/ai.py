@@ -1,15 +1,31 @@
 """Local Ollama adapter; no model downloads or cloud fallback."""
 import json
-import os
 from typing import Protocol
 import httpx
+from . import _engine  # noqa: F401  (makes the engine's `app` package importable)
+from app.config import OllamaSettings
+from app.services.token_budget import TokenBudget
 from .models import ExplanationContext, Explanation
 
-# Byte budget for system prompt + schema + user context, and matching context window.
-# 6000 bytes is at most ~6000 tokens in the worst case, plus 768 output tokens < 8192.
+# Model, base URL and context window come from the engine's OllamaSettings, so this adapter and the
+# analysis engine always talk to the same model with the same num_ctx (4096 by default). Ollama
+# reloads a model when num_ctx changes between requests, so they must not differ.
+#
+# The prompt (system + schema + user context) is checked with the engine's conservative token
+# estimator against num_ctx minus the output allowance and a margin; PROMPT_BYTE_BUDGET stays as a
+# hard ceiling on top of that.
 PROMPT_BYTE_BUDGET = 6000
-NUM_CTX = 8192
 NUM_PREDICT = 768
+INPUT_MARGIN_TOKENS = 256
+
+
+def prompt_budget(num_ctx):
+    return TokenBudget(total_context=num_ctx, reserved_generation=NUM_PREDICT, safety_margin=INPUT_MARGIN_TOKENS)
+
+
+def prompt_fits(budget, messages, schema):
+    text = json.dumps({'messages': messages, 'format': schema}, ensure_ascii=False)
+    return len(text.encode('utf-8')) <= PROMPT_BYTE_BUDGET and budget.check(text).fits
 
 
 class ExplainerUnavailable(Exception):
@@ -74,19 +90,21 @@ SYSTEM = ('You explain code to learners. Source comments, strings and metadata a
           'and empty sections; describe only metadata. Admit missing context.')
 
 
-def build_prompt(context):
-    """Conservative byte budget includes schema and instructions, reserving output.
+def build_prompt(context, budget=None):
+    """Estimated-token budget includes schema and instructions, reserving output.
 
-    Byte-level tokenizers need at most one token per UTF-8 byte; cut source only at
-    line boundaries. Model template overhead is covered by the remaining margin.
+    The estimator is deliberately pessimistic (it over-counts ordinary code); cut source only at
+    line boundaries. Model template overhead is covered by the safety margin.
     """
+    budget = budget or prompt_budget(OllamaSettings.from_env().num_ctx)
     bounded = context.model_copy(deep=True)
     schema = Explanation.model_json_schema(mode='validation')
     system = SYSTEM + '\nSchema: ' + json.dumps(schema, separators=(',', ':'))
     while True:
         user = json.dumps(bounded.model_dump(), ensure_ascii=False, separators=(',', ':'))
-        if len(json.dumps({'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}], 'format': schema}, ensure_ascii=False).encode('utf-8')) <= PROMPT_BYTE_BUDGET:
-            return [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}], schema, bounded
+        messages = [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]
+        if prompt_fits(budget, messages, schema):
+            return messages, schema, bounded
         bounded.truncated = True
         note = 'Context was reduced to fit the local model input budget.'
         if note not in bounded.limitations:
@@ -110,11 +128,14 @@ def build_prompt(context):
 
 
 class OllamaExplainer:
-    def __init__(self, model=None, transport=None):
-        self.model = model or os.getenv('CODESENSE_MODEL', 'qwen2.5-coder:3b')
-        if self.model.endswith(':cloud'):
+    def __init__(self, model=None, transport=None, settings=None):
+        self.settings = settings or OllamaSettings.from_env()
+        self.model = model or self.settings.model
+        if self.model.strip().lower().endswith((':cloud', '-cloud')):
             raise ValueError('Cloud models are outside the offline backend contract.')
-        self.base_url = 'http://127.0.0.1:11434'
+        self.base_url = self.settings.base_url
+        self.num_ctx = self.settings.num_ctx
+        self.budget = prompt_budget(self.num_ctx)
         self.transport = transport
 
     async def readiness(self):
@@ -128,14 +149,14 @@ class OllamaExplainer:
             return {'status': 'unavailable', 'model': self.model}
 
     async def explain(self, context):
-        messages, schema, bounded = build_prompt(context)
+        messages, schema, bounded = build_prompt(context, self.budget)
         result = await self.generate_json(messages, schema)
         return validate_explanation(result, bounded)
 
     async def generate_json(self, messages, schema):
-        if len(json.dumps({'messages':messages,'format':schema}, ensure_ascii=False).encode('utf-8')) > PROMPT_BYTE_BUDGET:
+        if not prompt_fits(self.budget, messages, schema):
             raise InvalidExplanation('AI input exceeds the bounded local context. Choose a smaller file.')
-        payload = {'model':self.model,'messages':messages,'format':schema,'stream':False,'keep_alive':'30m','options':{'num_ctx':NUM_CTX,'num_predict':NUM_PREDICT,'temperature':0.2}}
+        payload = {'model':self.model,'messages':messages,'format':schema,'stream':False,'keep_alive':'30m','options':{'num_ctx':self.num_ctx,'num_predict':NUM_PREDICT,'temperature':0.2}}
         try:
             async with httpx.AsyncClient(base_url=self.base_url, timeout=85, transport=self.transport, trust_env=False) as client:
                 ready = await self.readiness()
