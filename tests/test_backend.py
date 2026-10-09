@@ -100,7 +100,10 @@ class BackendTests(unittest.TestCase):
             async def explain(self, context):
                 return {'overview':'bad','sections':[{'title':'bad','explanation':'bad','start_line':99,'end_line':99}]}
         with TestClient(create_app(BadExplainer())) as other:
-            self.assertEqual(other.post('/api/analyze',json=body).status_code,502)
+            response = other.post('/api/analyze',json=body)
+            self.assertEqual(response.status_code,200)
+            self.assertEqual(response.json()['sections'],[])
+            self.assertIn('Some citations outside the supplied excerpts were removed.',response.json()['limitations'])
 
     def test_store_is_bounded(self):
         from backend.models import Project

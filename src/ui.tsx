@@ -1,13 +1,15 @@
 import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
 import { LIMITS } from "./types";
 export const Ic = ({ d, s = 20 }: { d: string; s?: number }) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true"><path d={d} /></svg>;
-export const I = { home: "M3 11l9-8 9 8v10H3z", book: "M5 3h14v18H5zM9 8h6M9 12h6M9 16h4", clock: "M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 3", up: "M12 17V4M6 10l6-6 6 6M4 21h16", lock: "M4 11h16v10H4zM8 11V7h8v4", file: "M6 3h8l4 4v14H6z", check: "M4 12l5 5L20 6", warn: "M12 3l10 18H2zM12 10v5M12 18h.01", gear: "M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v3M12 19v3M2 12h3M19 12h3", moon: "M20 14A8 8 0 0110 4a8 8 0 1010 10z" };
+export const I = { home: "M3 11l9-8 9 8v10H3z", clock: "M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 3", up: "M12 17V4M6 10l6-6 6 6M4 21h16", lock: "M4 11h16v10H4zM8 11V7h8v4", file: "M6 3h8l4 4v14H6z", check: "M4 12l5 5L20 6", warn: "M12 3l10 18H2zM12 10v5M12 18h.01", gear: "M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v3M12 19v3M2 12h3M19 12h3", moon: "M20 14A8 8 0 0110 4a8 8 0 1010 10z" };
 const MASCOTS = {
   default: ["/sloth-mascot.png", "CodeSense sloth mascot wearing headphones and coding on a laptop"],
   challenge: ["/sloth-mascot-challenge.png", "CodeSense challenge mascot wearing a headband and holding a sword and shield"],
   project: ["/sloth-mascot-project.png", "CodeSense project mascot holding a folder of source files"],
+  empty: ["/sloth-mascot-empty-state.png", "CodeSense sloth coding on a laptop with colorful programming symbols"],
+  explanation: ["/sloth-mascot-explanation-empty.png", "CodeSense sloth explaining code with a light bulb and pointer"],
 } as const;
-export const Sloth = ({ size = 6, mascot = "default" }: { size?: number; mascot?: keyof typeof MASCOTS }) => <span className="mascot" style={{ width: size * 24 }}><img src={MASCOTS[mascot][0]} alt={MASCOTS[mascot][1]} /></span>;
+export const Sloth = ({ size = 6, mascot = "default" }: { size?: number; mascot?: keyof typeof MASCOTS }) => <span className={`mascot mascot-${mascot}`} style={{ width: size * 24 }}><img src={MASCOTS[mascot][0]} alt={MASCOTS[mascot][1]} /></span>;
 export function AnimatedSloth() {
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [failed, setFailed] = useState(false);
@@ -38,7 +40,7 @@ export function Stepper({ active, analyzing }: { active: number; analyzing?: boo
   return <nav className="card steps" aria-label="Progress">{s.map((n, i) => <Fragment key={n}><div className={"st" + (i === active ? " on" : "")} aria-current={i === active ? "step" : undefined}><span className="n">{i + 1}</span><span className="step-label">{n}</span>{analyzing && i === 0 && <span className="pill">Analyzing</span>}</div>{i < 4 && <div className="ln" />}</Fragment>)}</nav>;
 }
 export function Shell({ title, sub, step, analyzing, model, connected, onSetup, onTheme, children }: { title: string; sub: string; step: number; analyzing?: boolean; model: "ready" | "unavailable" | "checking"; connected: boolean; onSetup: () => void; onTheme: () => void; children: ReactNode }) {
-  return <div className="app"><aside className="side"><div className="brand"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#C48A5A" strokeWidth="2.5"><rect x="2" y="2" width="24" height="24" /><path d="M11 10l-4 4 4 4M17 10l4 4-4 4" /></svg><span className="t">CodeSense</span></div>
+  return <div className="app"><aside className="side"><div className="brand"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="var(--accent)" strokeWidth="2.5"><rect x="2" y="2" width="24" height="24" /><path d="M11 10l-4 4 4 4M17 10l4 4-4 4" /></svg><span className="t">CodeSense</span></div>
     <div className="nav on"><Ic d={I.home} /><span className="t">Workspace</span></div>
     <div className="side-spacer" /><div className="side-note"><span className="lbl">Small steps. Better code.</span><span>A space to learn at your pace.</span></div><button className="nav" onClick={onSetup} aria-label="Setup" title="Setup"><Ic d={I.gear} /><span className="t">Setup</span></button><button className="nav" onClick={onTheme} aria-label="Theme" title="Switch theme"><Ic d={I.moon} /><span className="t">Theme</span></button></aside>
     <main className="col"><header className="hd"><div><h1>{title}<i>.</i></h1><p>{sub}</p></div><div className="row"><Pill><span className="dot" />Local workspace</Pill><Pill><span style={{ color: model === "ready" ? "var(--success)" : "var(--warning)" }}><Ic d={model === "ready" ? I.gear : I.warn} s={16} /></span>{model === "ready" ? "Model ready" : model === 'checking' ? 'Checking runtime' : !connected ? 'Backend unavailable' : "Model unavailable"}</Pill></div></header>
