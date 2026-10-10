@@ -188,3 +188,5 @@ select{background:var(--surface);color:var(--text);border:1px solid var(--border
 .excerpt .no{color:var(--muted);user-select:none}.excerpt .hit{display:inline-block;width:100%;background:color-mix(in srgb,var(--warning) 18%,transparent)}
 .problems-block{display:flex;flex-direction:column;gap:12px;padding-top:14px;border-top:1px solid var(--border)}
 @media(max-width:480px){.facts{grid-template-columns:1fr}.facts dt{margin-top:6px}}
+
+.qa-panel{border-top:1px solid var(--border);padding-top:16px}.qa-panel form{display:flex;flex-direction:column;gap:10px}.qa-panel textarea{width:100%;padding:12px;background:var(--code-bg);color:var(--text);border:1px solid var(--border);font:inherit;resize:vertical}.qa-answer{white-space:pre-wrap;overflow-wrap:anywhere}.qa-answers{max-height:360px;overflow:auto}.qa-answers article{padding:12px 0;border-bottom:1px solid var(--border)}
