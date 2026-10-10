@@ -11,8 +11,34 @@ import { detectLanguage, sourceExtension } from './detectLanguage';
 import { AnalysisView, ProblemsView } from './analysis';
 const DIFFS = [{ id: "beginner", label: "Beginner" }, { id: "intermediate", label: "Intermediate" }, { id: "experienced", label: "Experienced" }] as { id: Difficulty; label: string }[];
 const Lines = ({ n = 5 }: { n?: number }) => <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{["90%", "60%", "75%", "45%", "80%", "55%"].slice(0, n).map((w, i) => <Sk key={i} w={w} />)}</div>;
+const DEFAULT_QWEN_MODEL = 'qwen2.5-coder:3b';
 
-export function UploadScreen({ view, onStart, errorMessage, disabled }: { view: ViewState; onStart: (input: ProjectInput, difficulty: Difficulty) => void; errorMessage?: string; disabled?: boolean }) {
+function LocalAISetup({ model, checking, onCheck }: { model: string; checking: boolean; onCheck: () => void }) {
+  const [copyStatus, setCopyStatus] = useState('');
+  const modelName = /^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model) ? model : DEFAULT_QWEN_MODEL;
+  const command = `ollama pull ${modelName}`;
+  const copyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopyStatus('Command copied. Paste it into Terminal or PowerShell.');
+    } catch {
+      setCopyStatus('Copy was blocked. Select the command below and copy it.');
+    }
+  };
+  return <section className="card local-ai-setup" aria-labelledby="local-ai-title">
+    <div><span className="lbl">Internet required for first-time setup</span><h3 id="local-ai-title">Set up local AI</h3><p className="helper">Download Ollama and the {modelName} model once. After setup, CodeSense sends AI requests to the model running on this computer.</p></div>
+    <ol>
+      <li><a className="btn" href="https://ollama.com/download" target="_blank" rel="noreferrer">Download Ollama</a><span> Install it, then open Ollama so its local service is running.</span></li>
+      <li>Download the model with the command below. This step needs an internet connection.</li>
+      <li>Come back to CodeSense and choose <b>Check connection</b>.</li>
+    </ol>
+    <div className="local-ai-command"><code>{command}</code><button className="btn" onClick={() => void copyCommand()}>Copy Qwen download command</button></div>
+    <p className="helper" role="status" aria-live="polite">{copyStatus || 'Run this command in Terminal (macOS/Linux) or PowerShell (Windows).'} The model download may take a while.</p>
+    <button className="btn pri" disabled={checking} onClick={onCheck}>{checking ? 'Checking…' : 'Check connection'}</button>
+  </section>;
+}
+
+export function UploadScreen({ view, onStart, errorMessage, disabled, workspace }: { view: ViewState; onStart: (input: ProjectInput, difficulty: Difficulty) => void; errorMessage?: string; disabled?: boolean; workspace: Workspace }) {
   const [files, setFiles] = useState<File[]>([]); const [d, setD] = useState<Difficulty>("beginner");
   const [mode, setMode] = useState<InputMode>('zip');
   const [code, setCode] = useState('');
@@ -45,7 +71,7 @@ export function UploadScreen({ view, onStart, errorMessage, disabled }: { view: 
     <div className="lbl">Your learning pace</div><Seg<Difficulty> value={d} options={DIFFS} onChange={setD} /><p className="helper">{d === "beginner" ? "Start with the basics, with a little more guidance." : d === "intermediate" ? "Connect the concepts and take on trickier bugs." : "Less guidance. More room to work things out."}</p>
     {view === "error" && <ErrBanner title="Upload failed" text={errorMessage || "Check the upload limits above, then try again."} />}
     {loading ? <div role="status"><div className="bar" role="progressbar" aria-label="Analyzing locally" /><p className="helper">Indexing your project locally…</p></div> : <button className="btn pri lg" disabled={disabled || (mode === 'paste' ? !code.trim() : !files.length)} onClick={start}>Explore project <span aria-hidden="true">→</span></button>}<p className="helper">{disabled ? 'Wait for the current explanation to finish.' : 'Your source will be checked and indexed on this device.'}</p></section>
-    <div className="welcome-column"><section className="card panel welcome-panel"><div className="companion"><div><span className="lbl">Meet your coding companion</span><h2>A little patience.<br /><em>A lot of progress.</em></h2><p>Big projects make more sense<br />one small step at a time.</p></div><AnimatedSloth /><span className="companion-caption"><span className="dot" />Ready when you are.</span></div><div className="workflow"><h3>From “what?” to “got it.”</h3><ol>{[["Explore", "Get your bearings in the project."], ["Understand", "Turn code into plain-language explanations."], ["Practice", "Work through a bug, with hints if you need them."], ["Reflect", "Learn from each fix and keep moving."]].map(([title, text], i) => <li key={title}><span className="workflow-number">0{i + 1}</span><div><b>{title}</b><span>{text}</span></div></li>)}</ol></div></section><Tip /></div></div>;
+    <div className="welcome-column">{workspace.health && workspace.health.ai.status !== 'ready' && <LocalAISetup model={workspace.health.ai.model || 'qwen2.5-coder:3b'} checking={workspace.checking} onCheck={() => void workspace.checkHealth()} />}<section className="card panel welcome-panel"><div className="companion"><div><span className="lbl">Meet your coding companion</span><h2>A little patience.<br /><em>A lot of progress.</em></h2><p>Big projects make more sense<br />one small step at a time.</p></div><AnimatedSloth /><span className="companion-caption"><span className="dot" />Ready when you are.</span></div><div className="workflow"><h3>From “what?” to “got it.”</h3><ol>{[["Explore", "Get your bearings in the project."], ["Understand", "Turn code into plain-language explanations."], ["Practice", "Work through a bug, with hints if you need them."], ["Reflect", "Learn from each fix and keep moving."]].map(([title, text], i) => <li key={title}><span className="workflow-number">0{i + 1}</span><div><b>{title}</b><span>{text}</span></div></li>)}</ol></div></section><Tip /></div></div>;
 }
 
 export function ExplorerScreen({ workspace: w, stage, onStage, onChallenge, onVerify, onRestart }: { workspace: Workspace; stage: WorkspaceStage; onStage: (stage: WorkspaceStage) => void; onChallenge: () => void; onVerify: () => void; onRestart: () => void }) {
@@ -72,7 +98,7 @@ export function ExplorerScreen({ workspace: w, stage, onStage, onChallenge, onVe
       {w.busy.source ? <Lines n={6} /> : w.selected?.status === 'skipped' ? <Empty title="File skipped" text={w.selected.reason || 'Unsupported source file.'} /> : w.selected ? <><CodeEditor key={w.selected.file_id} value={debugging && w.exercise ? w.answer : w.code} language={debugging && w.exercise ? w.exercise.language : w.selected.language || 'python'} readOnly={!debugging || !w.exercise || !!w.busy.challenge || !!w.busy.submit || stage !== 'debug'} onChange={debugging ? w.editAnswer : undefined} onSelection={debugging ? undefined : w.setRange} highlight={debugging ? null : focusedLines} /><p className="helper">{debugging ? w.exercise ? `Restore missing line ${w.exercise.missing_line}. Your original file is unchanged.` : 'Generating a missing-line challenge from this source…' : w.range ? `Selected lines ${w.range.start_line}–${w.range.end_line}` : 'Highlight code in the editor to explain selected lines.'}</p>{w.selected.reason && <p className="helper">{w.selected.reason}</p>}</> : <Empty mascot="empty" title="No file selected" text="Choose a file in the tree to read it here." />}
     </section>
     <section className="card panel explanation-panel" aria-busy={!!w.busy.analysis}>{debugging ? <InlineChallengePanel workspace={w} stage={stage} onStage={onStage} onVerify={onVerify} onRestart={onRestart} /> : <><h2 className="ttl">Your code, explained</h2><div className="seg">{(['project','file','block'] as const).map(scope => <button key={scope} className={w.scope === scope ? 'a' : ''} disabled={!!w.busy.analysis} onClick={() => w.changeScope(scope)}>{scope === 'block' ? 'Selection' : scope[0].toUpperCase()+scope.slice(1)}</button>)}</div><Seg<Difficulty> value={w.difficulty} options={DIFFS} onChange={w.changeDifficulty} />
-      {!modelReady && <ErrBanner title={w.health ? 'Model unavailable' : 'Backend unavailable'} text={w.healthError || 'Explanations and missing-line challenges need the local model. File browsing remains available.'} action="Check again" onAction={() => void w.checkHealth()} />}
+      {!modelReady && <><ErrBanner title={w.health ? 'Model unavailable' : 'Backend unavailable'} text={w.healthError || 'Explanations and missing-line challenges need the local model. File browsing remains available.'} />{w.health && <LocalAISetup model={w.health.ai.model || DEFAULT_QWEN_MODEL} checking={w.checking} onCheck={() => void w.checkHealth()} />}</>}
       {modelReady && !analysisReady && <ErrBanner title="Code analysis unavailable" text={w.health?.analysis?.reason || 'Code analysis is not available on this server.'} />}
       {w.errors.analysis && <ErrBanner title="Explanation failed" text={w.errors.analysis} action="Retry" onAction={() => void w.explain()} />}
       <button className="btn" disabled={!canExplain || (w.scope !== 'project' && (!w.selected || w.selected.status === 'skipped')) || (w.scope === 'block' && !w.range)} onClick={() => void w.explain()}>{w.busy.analysis ? 'Explaining locally…' : `Explain ${w.scope === 'block' ? 'selection' : w.scope}`}</button>
@@ -108,6 +134,6 @@ export function SetupDrawer({ workspace: w, onClose }: { workspace: Workspace; o
   return <dialog ref={dialog} className="drawer" aria-label="Setup" onCancel={onClose}><div className="row"><h2 className="ttl" style={{flex:1}}>Setup</h2><button className="btn" onClick={onClose}>Close</button></div>
     <div className="hint">Backend <span>{w.health?.backend || 'Unreachable'}</span></div><div className="hint">Local model <span>{w.health?.ai.status || 'Not checked'}</span></div><div className="hint">Model name <span>{w.health?.ai.model || 'Not available'}</span></div><div className="hint">Session storage <span>{w.health?.storage || 'Not checked'}</span></div>
     <button className="btn" disabled={w.checking} onClick={() => void w.checkHealth()}>{w.checking ? 'Checking…' : 'Check connection'}</button>
-    {w.healthError && <ErrBanner title="Backend unreachable" text={w.healthError} />}{w.health && w.health.ai.status !== 'ready' && <p className="helper">Start Ollama with the installed local model to enable explanations. File browsing works independently; new AI challenges require the model.</p>}
+    {w.healthError && <ErrBanner title="Backend unreachable" text={w.healthError} />}{w.health && w.health.ai.status !== 'ready' && <LocalAISetup model={w.health.ai.model || DEFAULT_QWEN_MODEL} checking={w.checking} onCheck={() => void w.checkHealth()} />}
     <div className="lbl">Offline readiness</div><p className="helper">Fonts and application assets are bundled locally. A full offline restart still needs checking on your demo laptop.</p><Tip /></dialog>;
 }
