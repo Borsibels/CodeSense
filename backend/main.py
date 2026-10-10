@@ -16,6 +16,7 @@ from .projects import MAX_UPLOAD, MAX_ENTRIES, safe_path, ProjectError, ingest_a
 from .middleware import BodyLimitMiddleware
 from .challenges import ChallengeEngine, ChallengeSelect, ChallengeSubmit
 from .missing_line import generate as generate_missing_line
+from .qa import QuestionRequest, QuestionAnswer, build_question_prompt, ask
 from .analysis_bridge import AnalysisBridge, AnalysisBody, BridgeAnalysisResponse, BridgeError
 
 def create_app(explainer=None, inference_timeout=90, analysis=None):
@@ -163,6 +164,28 @@ def create_app(explainer=None, inference_timeout=90, analysis=None):
             except Exception as exc:
                 traceback.print_exc()
                 raise HTTPException(502, 'Local explanation service failed.') from exc
+
+    @app.post('/api/questions', response_model=QuestionAnswer)
+    async def question(body: QuestionRequest):
+        if app.state.generation_lock.locked():
+            raise HTTPException(429, 'Local AI is busy. Wait for the current request to finish.')
+        async with app.state.generation_lock:
+            try:
+                messages, schema, context = await asyncio.to_thread(
+                    build_question_prompt, body, getattr(app.state.explainer, 'budget', None))
+                return await asyncio.wait_for(ask(app.state.explainer, messages, schema, context), timeout=inference_timeout)
+            except ExplainerUnavailable as exc:
+                raise HTTPException(503, str(exc)) from exc
+            except TimeoutError as exc:
+                raise HTTPException(504, 'Local AI Q&A timed out.') from exc
+            except ProjectError:
+                raise
+            except KeyError:
+                raise
+            except (ValidationError, ValueError, TypeError) as exc:
+                raise HTTPException(502, 'Local AI returned an invalid answer. Try a shorter question or source selection.') from exc
+            except Exception as exc:
+                raise HTTPException(502, 'Local AI Q&A failed. Try again.') from exc
 
     @app.post('/api/projects/{project_id}/analysis', response_model=BridgeAnalysisResponse)
     async def project_analysis(project_id: str, body: AnalysisBody):

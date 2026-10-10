@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { QuestionPanel } from "./QuestionPanel";
 import { CodeEditor } from "./Code";
 import { AnimatedSloth, Empty, ErrBanner, Ic, I, Limits, Pill, Seg, Sk, Tip } from "./ui";
 import { uploadError, sourceUploadError, folderFiles } from "./upload";
@@ -42,8 +43,8 @@ export function UploadScreen({ view, onStart, errorMessage, disabled, workspace 
   const [files, setFiles] = useState<File[]>([]); const [d, setD] = useState<Difficulty>("beginner");
   const [mode, setMode] = useState<InputMode>('zip');
   const [code, setCode] = useState('');
-  const [filename, setFilename] = useState(''); const [excluded, setExcluded] = useState(0);
-  const language = detectLanguage(code, filename);
+  const [excluded, setExcluded] = useState(0);
+  const language = detectLanguage(code);
   const fileInput = useRef<HTMLInputElement>(null); const folderInput = useRef<HTMLInputElement>(null);
   const loading = view === 'loading';
   useEffect(() => { folderInput.current?.setAttribute('webkitdirectory', ''); }, [mode]);
@@ -54,14 +55,14 @@ export function UploadScreen({ view, onStart, errorMessage, disabled, workspace 
     const message = mode === 'zip' ? uploadError(chosen) : sourceUploadError(chosen, mode === 'folder');
     setError(message); setFiles(message ? [] : chosen);
   };
-  const pasteError = !code.trim() ? 'Paste some source code first.' : new TextEncoder().encode(code).length > 100 * 1024 ? 'Pasted code exceeds the 100 KB limit.' : code.includes('\0') ? 'Source code cannot contain NUL bytes.' : !language ? 'The language is unclear. Add a filename ending in .py, .js, .html or .css.' : null;
+  const pasteError = !code.trim() ? 'Paste some source code first.' : new TextEncoder().encode(code).length > 100 * 1024 ? 'Pasted code exceeds the 100 KB limit.' : code.includes('\0') ? 'Source code cannot contain NUL bytes.' : !language ? 'The language is unclear. Paste a more complete snippet, or upload a source file.' : null;
   const start = () => {
-    if (mode === 'paste') { if (pasteError || !language) { setError(pasteError); return; } onStart({ mode, code, language, filename: filename.trim() || `snippet.${sourceExtension[language]}` }, d); }
+    if (mode === 'paste') { if (pasteError || !language) { setError(pasteError); return; } onStart({ mode, code, language, filename: `snippet.${sourceExtension[language]}` }, d); }
     else if (files.length) onStart({ mode, files }, d);
   };
   return <div className="grid upload-grid"><section className="card panel upload-panel" aria-busy={view === "loading"}><div className="panel-heading"><div><span className="lbl">01 / Your workspace</span><h2 className="ttl">Bring your code.</h2></div><Ic d={I.file} s={24} /></div>
     <div className="seg" aria-label="Code input method">{([['zip','ZIP archive'],['files','Files'],['folder','Folder'],['paste','Paste code']] as const).map(([id,label]) => <button key={id} className={mode === id ? 'a' : ''} aria-pressed={mode === id} disabled={loading || disabled} onClick={() => { setMode(id); setFiles([]); setError(null); setExcluded(0); }}>{label}</button>)}</div>
-    {mode === 'paste' ? <div className="paste-input"><label>Filename (optional)<input aria-label="Pasted code filename" value={filename} placeholder={language ? `snippet.${sourceExtension[language]}` : 'Optional: main.py, app.js, index.html…'} maxLength={200} disabled={loading} onChange={e => { setFilename(e.target.value); setError(null); }} /></label><label htmlFor="pasted-source">Source code</label><textarea id="pasted-source" value={code} disabled={loading} placeholder="Paste your code here…" onChange={e => { setCode(e.target.value); setError(null); }} spellCheck={false} /><p className="helper">{language ? `Detected language: ${language}. Up to 100 KB of UTF-8 source.` : 'Language is detected as you type. For ambiguous code, provide a filename with a supported extension.'}</p></div> : <label className={"drop" + (dragging ? " dragging" : "") + (files.length ? " selected" : "")} onDragOver={e => { e.preventDefault(); if (!loading && mode !== 'folder') setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); if (loading) return; if (mode === 'folder') { setError('Use Choose folder to preserve the folder paths.'); return; } if (Array.from(e.dataTransfer.items).some(item => item.webkitGetAsEntry?.()?.isDirectory)) { setError('Use the Folder option to select directories.'); return; } choose(Array.from(e.dataTransfer.files)); }}>
+    {mode === 'paste' ? <div className="paste-input"><label htmlFor="pasted-source">Source code</label><textarea id="pasted-source" value={code} disabled={loading} placeholder="Paste your code here…" onChange={e => { setCode(e.target.value); setError(null); }} spellCheck={false} /><p className="helper">{language ? `Detected language: ${language}. Up to 100 KB of UTF-8 source.` : 'Language is detected automatically. If it is unclear, paste a more complete snippet or upload a source file.'}</p></div> : <label className={"drop" + (dragging ? " dragging" : "") + (files.length ? " selected" : "")} onDragOver={e => { e.preventDefault(); if (!loading && mode !== 'folder') setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); if (loading) return; if (mode === 'folder') { setError('Use Choose folder to preserve the folder paths.'); return; } if (Array.from(e.dataTransfer.items).some(item => item.webkitGetAsEntry?.()?.isDirectory)) { setError('Use the Folder option to select directories.'); return; } choose(Array.from(e.dataTransfer.files)); }}>
       <span className="upload-icon"><Ic d={files.length ? I.check : I.up} s={28} /></span><b>{files.length === 1 ? files[0].name : files.length ? `${files.length} files selected` : mode === 'folder' ? 'Choose your project folder' : mode === 'files' ? 'Drop source files here' : 'Drop your project ZIP here'}</b><span>{files.length ? `${(files.reduce((n,f) => n+f.size,0)/1024).toFixed(0)} KB selected` : mode === 'folder' ? 'Keep relative paths and file relationships.' : mode === 'files' ? 'One file or several source files.' : 'One ZIP. A clearer picture of your code.'}</span><span className="btn">{mode === 'folder' ? 'Choose folder' : mode === 'files' ? 'Choose source files' : 'Choose ZIP archive'}<Ic d={I.up} s={16} /></span>
       {mode === 'folder' ? <input key="folder" ref={folderInput} type="file" multiple className="file-input" aria-label="Choose project folder" disabled={loading || disabled} onChange={e => { if (e.target.files?.length) choose(Array.from(e.target.files)); e.target.value = ''; }} /> : <input key="files" ref={fileInput} type="file" accept={mode === 'zip' ? '.zip' : '.py,.js,.html,.htm,.css'} multiple={mode === 'files'} className="file-input" aria-label={mode === 'zip' ? 'Choose project ZIP archive' : 'Choose source files'} disabled={loading || disabled} onChange={e => { if (e.target.files?.length) choose(Array.from(e.target.files)); e.target.value = ''; }} />}
     </label>}
@@ -80,7 +81,7 @@ export function ExplorerScreen({ workspace: w, stage, onStage, onChallenge, onVe
   useEffect(() => setFocusedLines(null), [w.selected?.file_id]);
   const modelReady = w.health?.ai.status === 'ready';
   const analysisReady = modelReady && w.health?.analysis?.available !== false;
-  const canExplain = !debugging && !!w.project && analysisReady && !w.busy.analysis && !w.busy.problems && !w.busy.source;
+  const canExplain = !debugging && !!w.project && analysisReady && !w.busy.analysis && !w.busy.problems && !w.busy.source && !w.busy.question;
   const canCheck = canExplain && !!w.selected && w.selected.status !== 'skipped';
   // Open the file a result points at and highlight the verified lines.
   const jump = async (path: string, start: number | null, end: number | null) => {
@@ -108,7 +109,8 @@ export function ExplorerScreen({ workspace: w, stage, onStage, onChallenge, onVe
         {w.errors.problems && <ErrBanner title="Check failed" text={w.errors.problems} action="Retry" onAction={() => void w.checkProblems()} />}
         {w.busy.problems ? <div role="status"><Lines n={4} /><p className="helper">The local model is working. This can take a little time.</p></div> : w.problems && <ProblemsView data={w.problems} onJump={jump} />}</div>
       {w.project && <details><summary>Static file relationships</summary><ul>{w.project.relationships.map((r,i) => <li className="helper" key={i}>{r.source} → {r.target} ({r.resolved ? r.kind : 'unresolved'})</li>)}</ul></details>}
-      <button className="btn pri lg" disabled={!modelReady || !!w.busy.challenge || !!w.busy.analysis || !!w.busy.problems || !!w.busy.source || !w.selected || w.selected.status === 'skipped'} onClick={onChallenge}>Generate missing-line challenge</button><Tip /></>}
+      <QuestionPanel key={`${w.project?.project_id}:${w.selected?.file_id}`} workspace={w} />
+      <button className="btn pri lg" disabled={!modelReady || !!w.busy.challenge || !!w.busy.analysis || !!w.busy.problems || !!w.busy.question || !!w.busy.source || !w.selected || w.selected.status === 'skipped'} onClick={onChallenge}>Generate missing-line challenge</button><Tip /></>}
     </section></div>;
 }
 

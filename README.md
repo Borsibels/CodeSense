@@ -178,3 +178,9 @@ cd backend
 - [Backend API, limits, and model integration](BACKEND.md)
 - [Frontend/backend integration notes](docs/frontend-integration.md)
 - [Backend agreement and API behavior](docs/backend-agreement.md)
+
+### Local AI Q&A
+
+In the Explain stage, use **Ask about this code** below the explanation tools. Ask about the selected file, or highlight lines first to limit the source context. It uses the configured local Ollama model and difficulty, with bounded context and the existing single inference lock. Each question is independent; the panel displays the last five answers for the selected file and clears when switching files. Q&A does not edit uploaded source or change challenge verification. It requires a ready model; there is no offline canned-answer fallback.
+
+The optional `POST /api/questions` endpoint accepts the existing context fields (`project_id`, `file_id`, `scope`, optional line range, `difficulty`) plus `question` (1–1000 characters, at most 2000 UTF-8 bytes). It returns `answer` and `limitations`. The existing setup, upload, analysis, and debugging endpoints are unchanged.

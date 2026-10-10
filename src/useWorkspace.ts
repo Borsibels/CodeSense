@@ -4,8 +4,10 @@ import type { ProjectInput } from './upload';
 import type { Analysis, ChallengeSelection, Exercise, Health, Project, Scope, SourceFile, Verification } from './api';
 import type { Difficulty, Language } from './types';
 
-type Operation = 'upload' | 'source' | 'analysis' | 'problems' | 'challenge' | 'submit' | 'hint' | 'solution';
+type Operation = 'question' | 'upload' | 'source' | 'analysis' | 'problems' | 'challenge' | 'submit' | 'hint' | 'solution';
 export function useWorkspace() {
+  const [questions, setQuestions] = useState<{question: string; answer: string; limitations: string[]; context: string}[]>([]);
+  const questionRunning = useRef(false);
   const [project, setProject] = useState<Project | null>(null);
   const [selected, setSelected] = useState<SourceFile | null>(null);
   const [code, setCode] = useState('');
@@ -58,6 +60,7 @@ export function useWorkspace() {
   async function selectFile(file: SourceFile, active = project, preserveExplanation = false) {
     if (!active) return;
     const epoch = ++sourceEpoch.current; ++explanationEpoch.current; ++problemsEpoch.current;
+    setQuestions([]); fail('question');
     setSelected(file); setCode(''); setRange(null); if (!preserveExplanation) { setExplanation(null); setProblems(null); setScope('file'); }
     fail('source'); fail('analysis'); mark('analysis', false); fail('problems'); mark('problems', false);
     if (file.status === 'skipped') { mark('source', false); return; }
@@ -74,6 +77,7 @@ export function useWorkspace() {
       const data = await ingestProject(input);
       ++sourceEpoch.current; ++explanationEpoch.current; ++problemsEpoch.current; ++exerciseEpoch.current;
       setProject(data); setDifficulty(level); setChallengeDifficulty(level);
+      setQuestions([]);
       setSelected(null); setCode(''); setExplanation(null); setProblems(null); setRange(null);
       setExercise(null); setAnswer(''); setHints([]); setSolution(''); setResult(null);
       setErrors({});
@@ -153,8 +157,24 @@ export function useWorkspace() {
     catch (e) { if (epoch === exerciseEpoch.current) fail('solution', e); }
     finally { mark('solution', false); }
   }
+  async function askQuestion(question: string) {
+    if (!project || !selected || selected.status === 'skipped' || questionRunning.current || Object.values(busy).some(Boolean)) return false;
+    const epoch = sourceEpoch.current;
+    questionRunning.current = true; mark('question', true); fail('question');
+    const context = range ? `${selected.path} - lines ${range.start_line}-${range.end_line}` : selected.path;
+    try {
+      const data = await post<{answer: string; limitations: string[]}>('/questions', {
+        project_id: project.project_id, file_id: selected.file_id, difficulty,
+        scope: range ? 'block' : 'file', ...(range || {}), question: question.trim()
+      });
+      if (epoch !== sourceEpoch.current) return false;
+      setQuestions(items => [...items.slice(-4), {question: question.trim(), ...data, context}]);
+      return true;
+    } catch (e) { if (epoch === sourceEpoch.current) fail('question', e); return false; }
+    finally { questionRunning.current = false; mark('question', false); }
+  }
   function editAnswer(value: string) { setAnswer(value); setResult(null); }
-  return { project, selected, code, range, setRange, scope, changeScope, difficulty, changeDifficulty, explanation, problems,
+  return { questions, askQuestion, project, selected, code, range, setRange, scope, changeScope, difficulty, changeDifficulty, explanation, problems,
     health, healthError, checking, checkHealth, connectionNotice, dismissConnectionNotice: () => setConnectionNotice(''), exercise, general, answer, editAnswer, hints, solution, result,
     challengeDifficulty, challengeLanguage, busy, errors, upload, selectFile, explain, checkProblems, loadChallenge, submit, revealHint, revealSolution };
 }
