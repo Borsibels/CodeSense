@@ -1,6 +1,6 @@
-# CodeSense
+# Sift
 
-CodeSense is a local learning tool for understanding and practicing with Python, JavaScript, HTML, and CSS code. You can upload a project, ask for a plain-language explanation, inspect possible problems, and try an AI-generated missing-line challenge. The app uses a React frontend, a FastAPI backend, and a local Ollama model. It does not run your uploaded code.
+Sift is a local learning tool for understanding and practicing with Python, JavaScript, HTML, and CSS code. You can upload a project, ask for a plain-language explanation, inspect possible problems, and try an AI-generated missing-line challenge. The app uses a React frontend, a FastAPI backend, and a local Ollama model. It does not run your uploaded code.
 
 This guide walks through setup and use from a fresh checkout. The backend entry point is `backend.main:app`.
 
