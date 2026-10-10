@@ -16,6 +16,7 @@ export function useWorkspace() {
   const [problems, setProblems] = useState<Analysis | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [healthError, setHealthError] = useState('');
+  const [connectionNotice, setConnectionNotice] = useState('');
   const [checking, setChecking] = useState(false);
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [general, setGeneral] = useState(false);
@@ -31,10 +32,25 @@ export function useWorkspace() {
   const mark = (op: Operation, value: boolean) => setBusy(s => ({ ...s, [op]: value }));
   const fail = (op: Operation, error: unknown = '') => setErrors(s => ({ ...s, [op]: error instanceof Error ? error.message : String(error) }));
 
-  async function checkHealth() {
+  async function checkHealth(showNotice = false) {
     setChecking(true);
-    try { setHealth(await request<Health>('/health', {}, 5000)); setHealthError(''); }
-    catch (e) { setHealth(null); setHealthError((e as Error).message); }
+    try {
+      const data = await request<Health>('/health', {}, 5000);
+      setHealth(data); setHealthError('');
+      if (showNotice) {
+        setConnectionNotice(data.ai.status === 'ready'
+          ? 'Local AI is active and ready.'
+          : data.ai.status === 'model_missing'
+            ? `Ollama is running, but ${data.ai.model || 'the Qwen model'} is not downloaded yet. Follow the setup steps and run the model download command.`
+            : 'Local AI is not active yet. Install and open Ollama, then download the model using the setup steps.');
+      }
+      return data;
+    }
+    catch (e) {
+      setHealth(null); setHealthError((e as Error).message);
+      if (showNotice) setConnectionNotice('CodeSense could not check the AI status. Make sure the backend is running, then try again.');
+      return null;
+    }
     finally { setChecking(false); }
   }
   useEffect(() => { void checkHealth(); const timer = window.setInterval(checkHealth, 15000); return () => window.clearInterval(timer); }, []);
@@ -139,7 +155,7 @@ export function useWorkspace() {
   }
   function editAnswer(value: string) { setAnswer(value); setResult(null); }
   return { project, selected, code, range, setRange, scope, changeScope, difficulty, changeDifficulty, explanation, problems,
-    health, healthError, checking, checkHealth, exercise, general, answer, editAnswer, hints, solution, result,
+    health, healthError, checking, checkHealth, connectionNotice, dismissConnectionNotice: () => setConnectionNotice(''), exercise, general, answer, editAnswer, hints, solution, result,
     challengeDifficulty, challengeLanguage, busy, errors, upload, selectFile, explain, checkProblems, loadChallenge, submit, revealHint, revealSolution };
 }
 export type Workspace = ReturnType<typeof useWorkspace>;

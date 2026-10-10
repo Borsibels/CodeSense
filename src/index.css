@@ -144,6 +144,12 @@ body{background-image:radial-gradient(var(--border) .6px,transparent .6px);backg
 .local-ai-command .btn{height:34px;flex:none;padding:0 10px;font-size:12px}
 .local-ai-setup>.btn{align-self:flex-start;height:38px;font-size:13px}
 .local-ai-setup a.btn{text-decoration:none}
+.connection-toast{position:fixed;right:24px;bottom:24px;z-index:40;display:flex;align-items:flex-start;gap:16px;width:min(400px,calc(100vw - 32px));padding:16px;background:var(--surface);border:2px solid var(--warning);box-shadow:4px 4px 0 var(--panel-shadow);animation:arrive .18s ease-out}
+.connection-toast.is-ready{border-color:var(--success)}
+.connection-toast>div{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.connection-toast b{font-size:14px}
+.connection-toast span{color:var(--muted);font-size:12px;line-height:1.6}
+.connection-toast-close{flex:none;background:transparent;border:0;color:var(--muted);font-size:22px;line-height:1;cursor:pointer}
 @keyframes arrive{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
 @keyframes drawer-in{from{transform:translateX(100%)}to{transform:translateX(0)}}
