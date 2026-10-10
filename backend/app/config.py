@@ -119,9 +119,9 @@ class OllamaSettings:
 
         if not self.model or not self.model.strip():
             raise ConfigError("model must not be empty")
-        # Ollama "cloud" models run on remote servers; CodeSense is offline-only.
+        # Ollama "cloud" models run on remote servers; Sift is offline-only.
         if self.model.strip().lower().endswith((":cloud", "-cloud")):
-            raise ConfigError(f"model {self.model!r} is a cloud model; CodeSense only uses local models")
+            raise ConfigError(f"model {self.model!r} is a cloud model; Sift only uses local models")
 
         for name in ("num_ctx", "num_predict"):
             value = getattr(self, name)

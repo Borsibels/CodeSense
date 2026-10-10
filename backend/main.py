@@ -27,7 +27,7 @@ def create_app(explainer=None, inference_timeout=90, analysis=None):
         finally:
             await app.state.analysis.aclose()
 
-    app = FastAPI(title='CodeSense Backend', version='0.3.0', lifespan=lifespan)
+    app = FastAPI(title='Sift Backend', description='Sift is an offline AI-powered code comprehension and debugging platform. Make sense of every line.', version='0.3.0', lifespan=lifespan)
     app.state.explainer = explainer or OllamaExplainer()
     # Project analysis (Phase 4.5 engine) reads the same model settings as the explainer.
     app.state.analysis = analysis or AnalysisBridge(ollama_settings=getattr(app.state.explainer, 'settings', None))

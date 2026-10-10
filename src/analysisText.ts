@@ -1,7 +1,30 @@
 // Wording and small decisions for rendering an analysis. Pure functions, so they can be tested without a DOM.
-import type { AnalysisStep, Finding, FindingVerification, PatternCheck, SelectionInfo, Tier } from './api';
+import type { AnalysisStep, Finding, FindingVerification, LineSpan, PatternCheck, Relationship, Scope, SelectionInfo, SourceFile, Tier } from './api';
 
 export const rangeLabel = (start: number, end: number) => start === end ? `line ${start}` : `lines ${start}–${end}`;
+
+export interface ScopeChoice { id: Scope; label: string; disabled: boolean }
+const baseName = (path: string) => path.split('/').pop() || path;
+/** What the scope picker offers. A file needs readable source, and selected code needs selected lines. */
+export function scopeChoices(file: Pick<SourceFile, 'path' | 'status'> | null, range: LineSpan | null): ScopeChoice[] {
+  const readable = !!file && file.status !== 'skipped';
+  return [
+    { id: 'project', label: 'Entire project', disabled: false },
+    { id: 'file', label: readable ? `Current file (${baseName(file.path)})` : 'Current file', disabled: !readable },
+    { id: 'block', label: range ? `Selected code (${rangeLabel(range.start_line, range.end_line)})` : 'Selected code', disabled: !readable || !range },
+  ];
+}
+/** The scope that will actually run: the chosen one, or the nearest one that is still available. */
+export function effectiveScope(chosen: Scope, choices: ScopeChoice[]): Scope {
+  const open = (id: Scope) => !choices.find(c => c.id === id)?.disabled;
+  return open(chosen) ? chosen : open('file') ? 'file' : 'project';
+}
+
+/** Static relationships that start or end at one file. */
+export function linksFor(relationships: Relationship[], path: string | null) {
+  return { uses: path ? relationships.filter(r => r.source === path) : [], usedBy: path ? relationships.filter(r => r.target === path) : [] };
+}
+export const linkLabel = (r: Pick<Relationship, 'kind' | 'resolved'>) => r.resolved ? r.kind : 'unresolved';
 
 export interface StepLocation { path: string; start: number | null; end: number | null; label: string }
 /** A clickable source location for a step, or null. Only locations the backend verified are ever shown. */

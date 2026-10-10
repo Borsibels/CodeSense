@@ -42,7 +42,7 @@ ANALYSIS_TIMEOUT = 300.0
 # Parser kinds that count as "a function or class" for selection mapping, and how a note names them.
 UNITS = {'function': 'function', 'async_function': 'function', 'method': 'method', 'async_method': 'method', 'class': 'class'}
 # Why the engine leaves a file out, in words a learner can act on.
-EXCLUSIONS = {'ignored_directory': 'it is inside a folder CodeSense ignores (such as coverage, build or .vscode)', 'generated_file': 'it looks machine-generated',
+EXCLUSIONS = {'ignored_directory': 'it is inside a folder Sift ignores (such as coverage, build or .vscode)', 'generated_file': 'it looks machine-generated',
               'minified': 'it looks minified', 'too_large': 'it is too large', 'unsupported_extension': 'its file type is not supported',
               'binary_content': 'it is not a text file', 'invalid_encoding': 'it is not valid UTF-8'}
 
@@ -220,7 +220,7 @@ def translate(exc, model) -> BridgeError:
     if isinstance(exc, TimeoutError):
         return BridgeError(504, 'AI_TIMEOUT', 'The local analysis took too long. Try a smaller selection.')
     if isinstance(exc, AnalysisBudgetError):
-        return BridgeError(500, 'ANALYSIS_BUDGET_ERROR', 'The analysis could not be fitted into the local model\'s window. This is a CodeSense bug; check the server log.')
+        return BridgeError(500, 'ANALYSIS_BUDGET_ERROR', 'The analysis could not be fitted into the local model\'s window. This is a Sift bug; check the server log.')
     return BridgeError(500, 'ANALYSIS_FAILED', 'The analysis failed unexpectedly. Check the server log.')
 
 
@@ -240,11 +240,11 @@ def selection_info(plan: Plan, analysis: ProjectAnalysis, response: AnalysisResp
         wanted = f'lines {requested.start_line}–{requested.end_line}' if requested.start_line != requested.end_line else f'line {requested.start_line}'
         if plan.scope == 'symbol':
             kind = UNITS.get(next((s.kind for s in analysis.analyses[path].symbols if s.qualified_name in response.target_symbols), ''), 'section')
-            note = f'You selected {wanted}. CodeSense analysed the whole {kind} \'{response.target_symbols[0]}\' (lines {analyzed.start_line}–{analyzed.end_line}) that contains it, so the analysis can mention code you did not select.'
+            note = f'You selected {wanted}. Sift analysed the whole {kind} \'{response.target_symbols[0]}\' (lines {analyzed.start_line}–{analyzed.end_line}) that contains it, so the analysis can mention code you did not select.'
         elif plan.fallback == 'ambiguous':
-            note = f'You selected {wanted}, but the function or class around it shares its name with another definition in this file, so CodeSense analysed the whole file.'
+            note = f'You selected {wanted}, but the function or class around it shares its name with another definition in this file, so Sift analysed the whole file.'
         else:
-            note = f'You selected {wanted}, which is not inside a single function or class, so CodeSense analysed the whole file.'
+            note = f'You selected {wanted}, which is not inside a single function or class, so Sift analysed the whole file.'
     return SelectionInfo(scope=plan.scope, requested=requested, analyzed_symbol=response.target_symbols[0] if response.target_symbols else None, analyzed_lines=analyzed, expanded=expanded, note=note)
 
 

@@ -1,4 +1,4 @@
-# CodeSense backend
+# Sift backend
 
 Local application logic for project ingestion, source indexing, static analysis,
 file navigation, bounded context preparation, local Ollama explanations and curated

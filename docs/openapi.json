@@ -1,7 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "CodeSense Backend",
+    "title": "Sift Backend",
+    "description": "Sift is an offline AI-powered code comprehension and debugging platform. Make sense of every line.",
     "version": "0.3.0"
   },
   "paths": {
@@ -949,7 +950,7 @@
             },
             "type": "array",
             "title": "Glossary",
-            "description": "Deterministic, `beginner` depth only: plain-language meanings of common programming words found in the AI's text. Written by CodeSense, not by the AI, and bounded to a few entries."
+            "description": "Deterministic, `beginner` depth only: plain-language meanings of common programming words found in the AI's text. Written by Sift, not by the AI, and bounded to a few entries."
           },
           "limitations": {
             "items": {
@@ -2153,7 +2154,7 @@
               "heuristic"
             ],
             "title": "Parser",
-            "description": "`confirmed`: found with Python's own parser. `heuristic`: found with CodeSense's lightweight JavaScript scanner."
+            "description": "`confirmed`: found with Python's own parser. `heuristic`: found with Sift's lightweight JavaScript scanner."
           },
           "file_path": {
             "type": "string",

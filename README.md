@@ -1,6 +1,12 @@
 # Sift
 
+<<<<<<< HEAD
 Sift is a local learning tool for understanding and practicing with Python, JavaScript, HTML, and CSS code. You can upload a project, ask for a plain-language explanation, inspect possible problems, and try an AI-generated missing-line challenge. The app uses a React frontend, a FastAPI backend, and a local Ollama model. It does not run your uploaded code.
+=======
+**Make sense of every line.**
+
+Sift is a local learning tool for understanding and practicing with Python, JavaScript, HTML, and CSS code. You can upload a project, ask for a plain-language explanation, inspect possible problems, ask questions about your code, and try an AI-generated missing-line challenge. **Snip**, the programmer sloth, is its friendly local AI coding companion: the assistant panel in the workspace is labelled "Ask Snip". The app uses a React frontend, a FastAPI backend, and a local Ollama model. It does not run your uploaded code.
+>>>>>>> 01def98 (feat: redesign Code Explorer workspace and rebrand to Sift)
 
 This guide walks through setup and use from a fresh checkout. The backend entry point is `backend.main:app`.
 
@@ -29,9 +35,9 @@ You can open and browse uploaded files without Ollama. Explanations, possible-pr
    ollama list
    ```
 
-The first AI request can take longer while Ollama loads the model. CodeSense connects to Ollama at `http://127.0.0.1:11434` by default. Downloading packages and the model needs internet access; normal app use sends model requests to your local Ollama service.
+The first AI request can take longer while Ollama loads the model. Sift connects to Ollama at `http://127.0.0.1:11434` by default. Downloading packages and the model needs internet access; normal app use sends model requests to your local Ollama service.
 
-## 2. Install CodeSense dependencies
+## 2. Install Sift dependencies
 
 Open a terminal in the repository root (the directory containing this README and `package.json`). If you do not have the project files yet, clone the repository using its URL from your Git host, then change into the `CodeSense` folder. Create a Python virtual environment, install the locked backend dependencies, and install the frontend dependencies.
 
@@ -55,7 +61,7 @@ npm ci
 
 If `python3.12` is not available, use `python3` if it points to Python 3.11 or newer.
 
-## 3. Start CodeSense
+## 3. Start Sift
 
 Choose either the all-in-one mode or the frontend development mode.
 
@@ -99,11 +105,12 @@ To stop either server, press **Ctrl+C** in its terminal.
 
 ## 4. Use the app
 
-1. **Upload your code.** Choose a ZIP archive, individual source files, a project folder, or paste a snippet. For pasted code, use a filename ending in `.py`, `.js`, `.html`, or `.css` if the language is unclear.
-2. **Explore files.** Select an eligible file in the project tree. Skipped files show a reason. The code shown in the editor is the source that was uploaded.
-3. **Explain code.** Choose Project, File, or Selection, set a difficulty, and ask for an explanation. To explain selected lines, highlight them in the editor first. Use **Possible problems** as a review aid: its results can be wrong or incomplete and are not confirmed bugs.
-4. **Practice debugging.** Choose **Generate missing-line challenge**. CodeSense creates a challenge from a copy of the source and keeps your uploaded file unchanged. Edit the copy in the editor. Reveal hints one at a time, then choose **Check my fix**.
-5. **Review your result.** A failed check can be revised. A successful check can continue to Learn, where you can reveal the original source and compare it with your fix.
+1. **Upload your code.** Choose a ZIP archive, individual source files, a project folder, or paste a snippet. For pasted code, Sift detects the language automatically; if it is unclear, paste a more complete snippet or upload a source file.
+2. **Explore files.** The workspace has three panels: Explorer, Code, and the **Ask Snip** assistant. Select an eligible file in the Explorer. Skipped files show a reason. The code shown in the editor is the source that was uploaded. Drag the dividers to resize the panels.
+3. **Explain code.** In **Ask Snip**, choose what to analyze (the project, the open file, or the selected lines), set a learning pace, and press **Explain**. To explain selected lines, highlight them in the editor first. AI-written text is labelled "AI-written"; items Sift computed from your files are labelled "Checked by Sift". The **Relationships** tab lists the imports and references found between your files. Use the **Issues** tab as a review aid: its results can be wrong or incomplete and are not confirmed bugs.
+4. **Ask questions.** Use the **Q&A** tab to ask the local AI about the open file or selected lines.
+5. **Practice debugging.** In the **Practice** tab, choose **Generate missing-line challenge**. Sift creates a challenge from a copy of the source and keeps your uploaded file unchanged. Edit the copy in the editor. Reveal hints one at a time, then choose **Check my fix**.
+6. **Review your result.** A failed check can be revised. A successful check can continue to Learn, where you can reveal the original source and compare it with your fix.
 
 Challenge verification compares parsed source structure. It does not execute code, prove that the original program is correct, or accept every equivalent rewrite. Challenge generation currently creates one missing-line challenge at a time; difficulty guides the local model but cannot guarantee quality.
 
@@ -138,7 +145,7 @@ From the repository root:
 ```sh
 npm run typecheck
 npm run build
-node --experimental-strip-types --test tests/api.test.ts tests/upload.test.ts tests/detectLanguage.test.ts tests/analysis.test.ts
+node --experimental-strip-types --test tests/api.test.ts tests/upload.test.ts tests/detectLanguage.test.ts tests/analysis.test.ts tests/layout.test.ts
 ```
 
 Run the root Python tests with the virtual environment:
@@ -181,6 +188,10 @@ cd backend
 
 ### Local AI Q&A
 
-In the Explain stage, use **Ask about this code** below the explanation tools. Ask about the selected file, or highlight lines first to limit the source context. It uses the configured local Ollama model and difficulty, with bounded context and the existing single inference lock. Each question is independent; the panel displays the last five answers for the selected file and clears when switching files. Q&A does not edit uploaded source or change challenge verification. It requires a ready model; there is no offline canned-answer fallback.
+In the workspace, open the **Q&A** tab of the **Ask Snip** panel and use **Ask about this code**. Ask about the selected file, or highlight lines in the editor first to limit the source context. It uses the configured local Ollama model and difficulty, with bounded context and the existing single inference lock. Each question is independent; the panel displays the last five answers for the selected file and clears when switching files. Q&A does not edit uploaded source or change challenge verification. It requires a ready model; there is no offline canned-answer fallback.
 
 The optional `POST /api/questions` endpoint accepts the existing context fields (`project_id`, `file_id`, `scope`, optional line range, `difficulty`) plus `question` (1–1000 characters, at most 2000 UTF-8 bytes). It returns `answer` and `limitations`. The existing setup, upload, analysis, and debugging endpoints are unchanged.
+
+## Naming
+
+The product is Sift and the mascot and assistant persona is Snip. A few technical identifiers deliberately keep the earlier name, `codesense`, so existing setups keep working: the `CODESENSE_MODEL` environment variable (fallback for `OLLAMA_MODEL`), the `codesense-ui` npm package name, the `codesense.workspace.layout.v1` browser storage key (saved panel sizes), the `codesense_*` temporary file names used by the live-check scripts in `backend/scripts/`, and the repository folder name.

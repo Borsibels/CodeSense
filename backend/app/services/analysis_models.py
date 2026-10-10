@@ -358,7 +358,7 @@ class PatternCheckOut(_Out):
     explanation: str = Field(description="Deterministic, written for the requested depth.")
     assumptions: list[str] = Field(description="Deterministic: what must be true for this to be a real problem. Always shown with the hit.")
     parser: Literal["confirmed", "heuristic"] = Field(
-        description="`confirmed`: found with Python's own parser. `heuristic`: found with CodeSense's lightweight JavaScript scanner."
+        description="`confirmed`: found with Python's own parser. `heuristic`: found with Sift's lightweight JavaScript scanner."
     )
     file_path: str
     start_line: int
@@ -464,7 +464,7 @@ class AnalysisResponse(_Out):
         default_factory=list,
         description=(
             "Deterministic, `beginner` depth only: plain-language meanings of common programming words found in the "
-            "AI's text. Written by CodeSense, not by the AI, and bounded to a few entries."
+            "AI's text. Written by Sift, not by the AI, and bounded to a few entries."
         ),
     )
     limitations: list[str] = Field(description="Deterministic: what this analysis could not see or check.")

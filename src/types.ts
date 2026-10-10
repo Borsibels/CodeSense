@@ -1,4 +1,5 @@
 export type Difficulty = "beginner" | "intermediate" | "experienced";
+export const DIFFS: { id: Difficulty; label: string }[] = [{ id: "beginner", label: "Beginner" }, { id: "intermediate", label: "Intermediate" }, { id: "experienced", label: "Experienced" }];
 export type Language = "html" | "css" | "javascript" | "python";
 export type FileStatus = "analyzed" | "partial" | "skipped" | "unsupported";
 export type ViewState = "empty" | "loading" | "error";

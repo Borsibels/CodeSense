@@ -260,7 +260,7 @@ class ContextAssembler:
     def preface(self) -> str:
         request = self.request
         lines = [
-            "CODESENSE PROJECT CONTEXT (static analysis only; no code was executed)",
+            "SIFT PROJECT CONTEXT (static analysis only; no code was executed)",
             f"Intent: {request.intent}",
         ]
         if self.selection.target_path:

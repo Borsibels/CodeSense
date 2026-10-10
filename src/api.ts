@@ -9,7 +9,7 @@ export interface Health { backend: string; ai: { status: string; model: string |
 export type Scope = 'project' | 'file' | 'block';
 
 // Project analysis: POST /api/projects/{id}/analysis. Fields say in the backend contract whether they are
-// AI-written or deterministic (computed by CodeSense from the real project).
+// AI-written or deterministic (computed by Sift from the real project).
 export type Depth = 'beginner' | 'intermediate' | 'advanced';
 export type Intent = 'overview' | 'explain' | 'debug';
 export interface LineSpan { start_line: number; end_line: number }

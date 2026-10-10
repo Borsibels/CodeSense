@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { groupFindings, numberedExcerpt, outcomeLabel, rangeLabel, scopeLabel, stepLocation, strengthLabel, tierLabel, tierReasonText, verificationLabel } from '../src/analysisText.ts';
+import { effectiveScope, groupFindings, linkLabel, linksFor, numberedExcerpt, outcomeLabel, rangeLabel, scopeChoices, scopeLabel, stepLocation, strengthLabel, tierLabel, tierReasonText, verificationLabel } from '../src/analysisText.ts';
 
 const step = (over: object) => ({ file_path: 'shop.py', start_line: 7, end_line: 9, location_status: 'in_context' as const, ...over });
 
@@ -44,4 +44,33 @@ test('excerpts are numbered from the backend start line and mark the cited lines
   const rows = numberedExcerpt('a\nb\nc', 10, { start: 11, end: 11 });
   assert.deepEqual(rows.map(r => [r.number, r.line, r.hit]), [[10, 'a', false], [11, 'b', true], [12, 'c', false]]);
   assert.ok(numberedExcerpt('x', 1).every(r => !r.hit));
+});
+
+test('the scope picker only offers what can really run, and falls back to the nearest available scope', () => {
+  const file = { path: 'app/shop.py', status: 'analyzed' as const };
+  const choices = scopeChoices(file, null);
+  assert.deepEqual(choices.map(c => c.id), ['project', 'file', 'block']);
+  assert.deepEqual(choices.map(c => c.disabled), [false, false, true]);
+  assert.equal(choices[1].label, 'Current file (shop.py)');
+  const withLines = scopeChoices(file, { start_line: 3, end_line: 5 });
+  assert.equal(withLines[2].disabled, false);
+  assert.equal(withLines[2].label, 'Selected code (lines 3–5)');
+  assert.equal(effectiveScope('block', withLines), 'block');
+  assert.equal(effectiveScope('block', choices), 'file');
+  // A skipped file cannot be read, so only the project can be analysed.
+  const skipped = scopeChoices({ path: 'big.py', status: 'skipped' }, { start_line: 1, end_line: 2 });
+  assert.deepEqual(skipped.map(c => c.disabled), [false, true, true]);
+  assert.equal(effectiveScope('file', skipped), 'project');
+  assert.equal(scopeChoices(null, null)[1].label, 'Current file');
+});
+
+test('file links are split into what a file uses and what uses it', () => {
+  const rel = (source: string, target: string, resolved = true) => ({ source, target, source_id: source, target_id: resolved ? target : null, kind: 'import', resolved });
+  const all = [rel('a.py', 'b.py'), rel('c.py', 'a.py'), rel('a.py', 'missing', false), rel('c.py', 'b.py')];
+  const links = linksFor(all, 'a.py');
+  assert.deepEqual(links.uses.map(r => r.target), ['b.py', 'missing']);
+  assert.deepEqual(links.usedBy.map(r => r.source), ['c.py']);
+  assert.deepEqual(linksFor(all, null), { uses: [], usedBy: [] });
+  assert.equal(linkLabel(all[0]), 'import');
+  assert.equal(linkLabel(all[2]), 'unresolved');
 });

@@ -129,7 +129,7 @@ async def test_context_overview_needs_no_file(api_factory):
     assert response.status_code == 200
     body = response.json()
     assert body["intent"] == "overview" and body["target_file"] is None
-    assert body["context"].startswith("CODESENSE PROJECT CONTEXT")
+    assert body["context"].startswith("SIFT PROJECT CONTEXT")
     assert body["budget"] == {
         "input_limit": 2816,
         "instruction_reserve": 700,

@@ -50,7 +50,7 @@ export function useWorkspace() {
     }
     catch (e) {
       setHealth(null); setHealthError((e as Error).message);
-      if (showNotice) setConnectionNotice('CodeSense could not check the AI status. Make sure the backend is running, then try again.');
+      if (showNotice) setConnectionNotice('Sift could not check the AI status. Make sure the backend is running, then try again.');
       return null;
     }
     finally { setChecking(false); }
@@ -88,7 +88,8 @@ export function useWorkspace() {
     } catch (e) { fail('upload', e); return false; }
     finally { mark('upload', false); }
   }
-  function changeScope(value: Scope) { ++explanationEpoch.current; setScope(value); setExplanation(null); fail('analysis'); mark('analysis', false); }
+  // Picking a scope only changes what the next Explain does; the result already on screen stays until it is replaced.
+  function changeScope(value: Scope) { setScope(value); }
   function changeDifficulty(value: Difficulty) { ++explanationEpoch.current; ++problemsEpoch.current; setDifficulty(value); setExplanation(null); setProblems(null); fail('analysis'); mark('analysis', false); fail('problems'); mark('problems', false); }
   async function explain(value = scope) {
     if (!project) return;

@@ -43,7 +43,7 @@ def shown_lines(result):
         if line.startswith("FILE "):
             current = line.split()[1]
             out.setdefault(current, {})
-        elif line.startswith(("OUTLINE ", "CODESENSE")):
+        elif line.startswith(("OUTLINE ", "SIFT")):
             current = None
         elif current:
             m = GUTTER.match(line)

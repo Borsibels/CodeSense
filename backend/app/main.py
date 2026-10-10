@@ -101,7 +101,7 @@ def create_app(
         if app.state.analysis.unavailable_reason:
             logger.warning("POST /api/ai/analyze is disabled: %s", app.state.analysis.unavailable_reason)
         logger.info(
-            "CodeSense API starting: model=%s ollama=%s max_concurrent=%d queue_wait=%.1fs "
+            "Sift API starting: model=%s ollama=%s max_concurrent=%d queue_wait=%.1fs "
             "input_limit=%d est. tokens (ctx=%d, reserved_output=%d, margin=%d)",
             ollama_settings.model,
             ollama_settings.base_url,
@@ -116,11 +116,12 @@ def create_app(
             yield
         finally:
             await ollama.aclose()
-            logger.info("CodeSense API stopped; Ollama HTTP client closed")
+            logger.info("Sift API stopped; Ollama HTTP client closed")
 
     # Built-in /docs and /redoc load assets from CDNs; replaced by register_docs (offline).
     app = FastAPI(
-        title="CodeSense API",
+        title="Sift API",
+        description="Sift is an offline AI-powered code comprehension and debugging platform. Make sense of every line.",
         version="0.4.0",
         lifespan=lifespan,
         docs_url=None,

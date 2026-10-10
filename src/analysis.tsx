@@ -7,7 +7,7 @@ export type Jump = (path: string, start: number | null, end: number | null) => v
 
 // Provenance badges: AI text is never presented as a fact, and backend-computed data says so.
 const Ai = () => <span className="badge ai" title="Written by the small AI model running on this computer. It can be wrong.">AI-written</span>;
-const Checked = ({ children = 'Checked by CodeSense' }: { children?: ReactNode }) => <span className="badge checked" title="Computed by CodeSense from your uploaded files, not written by the AI.">{children}</span>;
+export const Checked = ({ children = 'Checked by Sift' }: { children?: ReactNode }) => <span className="badge checked" title="Computed by Sift from your uploaded files, not written by the AI.">{children}</span>;
 const Note = ({ title, tone, children }: { title: string; tone?: 'warn'; children: ReactNode }) => <div className={'note' + (tone ? ' ' + tone : '')} role="note"><b>{title}</b><span>{children}</span></div>;
 const Limits = ({ items }: { items: string[] }) => items.length > 0 ? <details className="limits" open><summary>What this analysis could not see or check ({items.length})</summary><ul>{items.map((limit, i) => <li className="helper" key={i}>{limit}</li>)}</ul></details> : null;
 
@@ -33,6 +33,16 @@ function Coverage({ data }: { data: Analysis }) {
   return <details><summary>What the AI was shown</summary><p className="helper">{c.full_files.length} file(s) in full, {c.partial_files.length} in part, {c.outline_only_files.length} as signatures only, {c.not_included_total} not shown, {c.excluded_total} skipped. Model: {data.generation.model}{data.generation.mode === 'compact' ? ' (short answer)' : ''}.</p></details>;
 }
 
+export const FileLink = ({ path, onJump }: { path: string; onJump: Jump }) => <button className="file-link" onClick={() => onJump(path, null, null)}>{path}</button>;
+
+/** How files connect, as found while explaining. Computed by Sift from the project, not written by the AI. */
+export function AnalysisLinks({ data, onJump }: { data: Analysis; onJump: Jump }) {
+  if (data.relationships.length === 0) return null;
+  return <section className="links"><div className="lbl">From the latest explanation <Checked /></div><ul>{data.relationships.map((r, i) => <li key={i}>
+    <FileLink path={r.from} onJump={onJump} />{r.kind === 'entry_point' ? ' looks like an entry point' : <>{r.kind === 'loads' ? ' loads ' : ' uses '}{r.resolved ? <FileLink path={r.to} onJump={onJump} /> : <>{r.to} <span className="helper">(not found in this project)</span></>}</>}
+  </li>)}</ul></section>;
+}
+
 /** Project overview or file/selection explanation. */
 export function AnalysisView({ data, onJump }: { data: Analysis; onJump: Jump }) {
   return <div className="analysis">
@@ -47,8 +57,7 @@ export function AnalysisView({ data, onJump }: { data: Analysis; onJump: Jump })
       return <section className="step" key={i}><b>{step.title}</b><span>{step.description}</span>
         {where ? <Where path={where.path} start={where.start} end={where.end} label={where.label} onJump={onJump} /> : step.location_status === 'rejected' && <span className="helper">The AI named a location that could not be verified, so none is shown.</span>}</section>;
     })}
-    {data.relationships.length > 0 && <details><summary>How files connect <Checked /></summary><ul>{data.relationships.map((r, i) => <li className="helper" key={i}>{r.kind === 'entry_point' ? `${r.from} looks like an entry point` : `${r.from} ${r.kind === 'loads' ? 'loads' : 'uses'} ${r.to}${r.resolved ? '' : ' (not found in this project)'}`}</li>)}</ul></details>}
-    {data.glossary.length > 0 && <details><summary>Words explained <Checked>Written by CodeSense</Checked></summary><dl className="facts">{data.glossary.map(g => <Fragment key={g.term}><dt>{g.term}</dt><dd>{g.meaning}</dd></Fragment>)}</dl></details>}
+    {data.glossary.length > 0 && <details><summary>Words explained <Checked>Written by Sift</Checked></summary><dl className="facts">{data.glossary.map(g => <Fragment key={g.term}><dt>{g.term}</dt><dd>{g.meaning}</dd></Fragment>)}</dl></details>}
     {data.assumptions.length > 0 && <details><summary>What the AI was unsure about <Ai /></summary><ul>{data.assumptions.map((a, i) => <li className="helper" key={i}>{a}</li>)}</ul></details>}
     <Limits items={data.limitations} />
     <Coverage data={data} />

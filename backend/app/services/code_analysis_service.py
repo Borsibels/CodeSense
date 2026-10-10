@@ -353,7 +353,7 @@ class CodeAnalysisService:
             concept = ConceptOut(name=concept_name, explanation=draft.concept_explanation)
         glossary: list[GlossaryEntry] = []
         if request.depth == "beginner":
-            # AI text, plus the rule explanations (CodeSense's own wording, but still read by the beginner).
+            # AI text, plus the rule explanations (Sift's own wording, but still read by the beginner).
             texts = [draft.summary if request.intent != "debug" else "", getattr(draft, "analogy", ""),
                      getattr(draft, "role_in_app", ""), concept_name, getattr(draft, "concept_explanation", "")]
             texts += [f"{e.title} {e.description}" for e in explanations]

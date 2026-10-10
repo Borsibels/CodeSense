@@ -1,4 +1,4 @@
-# CodeSense: backend integration agreement
+# Sift: backend integration agreement
 
 Status: implemented backend baseline for team review. This document is a proposal
 for the shared contract, not evidence that every teammate has already accepted it.
@@ -297,7 +297,7 @@ The response is the engine's `AnalysisResponse` (see `/openapi.json`) plus `proj
 ```json
 "selection": {"scope":"symbol","requested":{"start_line":7,"end_line":8},
   "analyzed_symbol":"total","analyzed_lines":{"start_line":5,"end_line":9},
-  "expanded":true,"note":"You selected lines 7-8. CodeSense analysed the whole function 'total' ..."}
+  "expanded":true,"note":"You selected lines 7-8. Sift analysed the whole function 'total' ..."}
 ```
 
 Rules the client must respect:
@@ -307,7 +307,7 @@ Rules the client must respect:
   is also the first `limitations` entry. `requested` is always the user's own selection.
 - **Provenance.** Fields documented as AI-generated must be labelled as such. Deterministic
   fields (`selection`, `relationships`, `glossary`, `coverage`, `limitations`, `tier`,
-  `verification`, `evidence`, `pattern_checks`, a `debug` summary) come from CodeSense.
+  `verification`, `evidence`, `pattern_checks`, a `debug` summary) come from Sift.
 - **No fabricated citations.** `explanations[].file_path/start_line/end_line` and finding
   locations are validated against what the AI was shown; `location_status` of `rejected`
   or `none` has null fields and must not be rendered as a source link. Evidence excerpts

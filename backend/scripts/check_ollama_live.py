@@ -96,7 +96,7 @@ def main() -> int:
     except ConfigError as exc:
         return fail(f"Invalid configuration: {exc}")
 
-    print("CodeSense - Ollama live inference check")
+    print("Sift - Ollama live inference check")
     print(
         f"  base_url={settings.base_url}  model={settings.model}\n"
         f"  num_ctx={settings.num_ctx}  num_predict={settings.num_predict}  "

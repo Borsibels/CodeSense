@@ -211,7 +211,7 @@ class ContractTests(BridgeCase):
     def test_a_file_the_engine_ignores_is_refused_clearly(self):
         self.start(files={'shop.py': SHOP, 'coverage/report.js': 'var a = 1;\n'})
         detail = self.assertError(self.analyze('coverage/report.js', intent='explain'), 422, 'FILE_NOT_ANALYZED')
-        self.assertIn('inside a folder CodeSense ignores', detail)
+        self.assertIn('inside a folder Sift ignores', detail)
         self.assertNotIn('ignored_directory', detail)
         self.assertEqual(len(self.ollama.requests), 0)
 

@@ -1,4 +1,4 @@
-# CodeSense backend
+# Sift backend
 
 React/Vite → **FastAPI** → `OllamaService` → Ollama → `qwen2.5-coder:3b`
 
@@ -364,7 +364,7 @@ ZIP -> secure ingestion -> static analysis -> dependency graph -> context select
 
 ### Who it is for: plain English by default
 
-CodeSense is aimed at people with little or no programming background (vibecoders, AI-assisted developers, students). So `depth` defaults to `beginner`:
+Sift is aimed at people with little or no programming background (vibecoders, AI-assisted developers, students). So `depth` defaults to `beginner`:
 
 | `depth` | Audience | What the answer looks like |
 |---|---|---|
@@ -402,7 +402,7 @@ Every field is labelled in `/docs` as **AI-generated** or **deterministic** (com
 | `explanations[]` | AI text, validated location | ordered steps/parts: `title`, `description`, `file_path`, `start_line`, `end_line`, `location_status`, `location_issue`. Empty for `debug`. |
 | `findings[]` | AI text, validated evidence, deterministic `tier` | `debug` only, at most 3, ordered `possible_problem` first (see below) |
 | `assumptions[]` | AI | what the AI says it could not confirm |
-| `glossary[]` | deterministic | `{term, meaning}`, at most 8: plain-language meanings of common programming words that appear in the AI's text, written by CodeSense. `beginner` depth only. |
+| `glossary[]` | deterministic | `{term, meaning}`, at most 8: plain-language meanings of common programming words that appear in the AI's text, written by Sift. `beginner` depth only. |
 | `limitations[]` | deterministic | what could not be seen or checked (partial files, signature-only files, skipped files, defused control sequences, instruction-like text in the source, compact fallback, the debug caution) |
 | `coverage` | deterministic | `full_files`, `partial_files` (included/omitted ranges), `outline_only_files`, `not_included_files` (+ total), `excluded_files` (+ total), `context_/instruction_/prompt_estimated_tokens`, `input_limit`, `is_estimate: true` |
 | `generation` | deterministic | `model`, `prompt_version`, `attempts` (model calls), `mode` (`standard` or `compact`), Ollama's `prompt_eval_count` / `eval_count` |

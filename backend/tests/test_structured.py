@@ -27,7 +27,7 @@ pytestmark = pytest.mark.anyio
 
 
 class Mini(BaseModel):
-    """Minimal test schema (NOT a CodeSense schema)."""
+    """Minimal test schema (NOT a Sift schema)."""
 
     summary: str = Field(min_length=1)
     line_count: int = Field(ge=0)

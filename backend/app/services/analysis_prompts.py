@@ -2,7 +2,7 @@
 
 Audience first
 --------------
-CodeSense is aimed at people with little or no programming background. ``beginner`` (the
+Sift is aimed at people with little or no programming background. ``beginner`` (the
 default) is therefore written for a non-programmer: say what the code accomplishes in
 everyday words, walk through it step by step, define any unavoidable term at once, explain
 how the code helps the application, and finish with ONE programming concept to learn.
