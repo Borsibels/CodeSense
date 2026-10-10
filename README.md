@@ -118,17 +118,6 @@ Challenge verification compares parsed source structure. It does not execute cod
 
 Projects and generated challenges are held temporarily in backend memory. Sessions expire after one hour of inactivity and are cleared when the backend restarts. Upload your project again after a restart or an expired-session message.
 
-## Troubleshooting
-
-**The page says “Backend unavailable.”** Make sure the backend terminal is still running on port 8000. You can check it directly at [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health). In development mode, open port 5173; in all-in-one mode, open port 8000.
-
-**The page says “Model unavailable.”** Start Ollama, then check that `ollama list` includes `qwen2.5-coder:3b`. Refresh the app or use Setup → Check connection.
-
-**The API reports that AI is busy.** CodeSense runs one model request at a time. Wait for the current explanation or challenge generation to finish, then retry.
-
-**A file cannot be explained or used for a challenge.** Check its status and the message shown in the file tree. It may be unsupported, too large, excluded, or not parseable for the requested operation.
-
-**A project or challenge expired.** Upload the project again and generate a new challenge. The backend does not persist sessions to disk.
 
 ## Configuration
 
