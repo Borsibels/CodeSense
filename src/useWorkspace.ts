@@ -3,15 +3,17 @@ import { post, request, ingestProject, analyzeProject, analysisBody } from './ap
 import type { ProjectInput } from './upload';
 import type { Analysis, ChallengeSelection, Exercise, Health, Project, Scope, SourceFile, Verification } from './api';
 import type { Difficulty, Language } from './types';
+import { conversationScope, conversationKey, recentHistory } from './conversation';
+import type { ConversationTurn, QuestionReply } from './conversation';
 
 type Operation = 'question' | 'upload' | 'source' | 'analysis' | 'problems' | 'challenge' | 'submit' | 'hint' | 'solution';
 export function useWorkspace() {
-  const [questions, setQuestions] = useState<{question: string; answer: string; limitations: string[]; context: string}[]>([]);
+  const [questions, setQuestions] = useState<ConversationTurn[]>([]);
   const questionRunning = useRef(false);
   const [project, setProject] = useState<Project | null>(null);
   const [selected, setSelected] = useState<SourceFile | null>(null);
   const [code, setCode] = useState('');
-  const [range, setRange] = useState<{ start_line: number; end_line: number } | null>(null);
+  const [range, updateRange] = useState<{ start_line: number; end_line: number } | null>(null);
   const [scope, setScope] = useState<Scope>('file');
   const [difficulty, setDifficulty] = useState<Difficulty>('beginner');
   const [explanation, setExplanation] = useState<Analysis | null>(null);
@@ -31,6 +33,12 @@ export function useWorkspace() {
   const [busy, setBusy] = useState<Partial<Record<Operation, boolean>>>({});
   const [errors, setErrors] = useState<Partial<Record<Operation, string>>>({});
   const sourceEpoch = useRef(0), explanationEpoch = useRef(0), problemsEpoch = useRef(0), exerciseEpoch = useRef(0);
+  const questionEpoch = useRef(0);
+  function resetConversation() { ++questionEpoch.current; setQuestions([]); fail('question'); }
+  function setRange(value: typeof range) {
+    if (value?.start_line !== range?.start_line || value?.end_line !== range?.end_line) resetConversation();
+    updateRange(value);
+  }
   const mark = (op: Operation, value: boolean) => setBusy(s => ({ ...s, [op]: value }));
   const fail = (op: Operation, error: unknown = '') => setErrors(s => ({ ...s, [op]: error instanceof Error ? error.message : String(error) }));
 
@@ -60,7 +68,7 @@ export function useWorkspace() {
   async function selectFile(file: SourceFile, active = project, preserveExplanation = false) {
     if (!active) return;
     const epoch = ++sourceEpoch.current; ++explanationEpoch.current; ++problemsEpoch.current;
-    setQuestions([]); fail('question');
+    resetConversation();
     setSelected(file); setCode(''); setRange(null); if (!preserveExplanation) { setExplanation(null); setProblems(null); setScope('file'); }
     fail('source'); fail('analysis'); mark('analysis', false); fail('problems'); mark('problems', false);
     if (file.status === 'skipped') { mark('source', false); return; }
@@ -77,7 +85,7 @@ export function useWorkspace() {
       const data = await ingestProject(input);
       ++sourceEpoch.current; ++explanationEpoch.current; ++problemsEpoch.current; ++exerciseEpoch.current;
       setProject(data); setDifficulty(level); setChallengeDifficulty(level);
-      setQuestions([]);
+      resetConversation();
       setSelected(null); setCode(''); setExplanation(null); setProblems(null); setRange(null);
       setExercise(null); setAnswer(''); setHints([]); setSolution(''); setResult(null);
       setErrors({});
@@ -89,14 +97,14 @@ export function useWorkspace() {
     finally { mark('upload', false); }
   }
   // Picking a scope only changes what the next Explain does; the result already on screen stays until it is replaced.
-  function changeScope(value: Scope) { setScope(value); }
-  function changeDifficulty(value: Difficulty) { ++explanationEpoch.current; ++problemsEpoch.current; setDifficulty(value); setExplanation(null); setProblems(null); fail('analysis'); mark('analysis', false); fail('problems'); mark('problems', false); }
+  function changeScope(value: Scope) { if (value !== scope) resetConversation(); setScope(value); }
+  function changeDifficulty(value: Difficulty) { resetConversation(); ++explanationEpoch.current; ++problemsEpoch.current; setDifficulty(value); setExplanation(null); setProblems(null); fail('analysis'); mark('analysis', false); fail('problems'); mark('problems', false); }
   async function explain(value = scope) {
     if (!project) return;
     if (value !== 'project' && (!selected || selected.status === 'skipped')) return;
     if (value === 'block' && !range) return;
     const epoch = ++explanationEpoch.current;
-    setScope(value); mark('analysis', true); fail('analysis'); setExplanation(null);
+    changeScope(value); mark('analysis', true); fail('analysis'); setExplanation(null);
     try {
       const body = analysisBody(value === 'project' ? 'overview' : 'explain', difficulty, value === 'project' ? null : selected, value === 'block' ? range : null);
       const data = await analyzeProject(project.project_id, body);
@@ -159,19 +167,27 @@ export function useWorkspace() {
     finally { mark('solution', false); }
   }
   async function askQuestion(question: string) {
-    if (!project || !selected || selected.status === 'skipped' || questionRunning.current || Object.values(busy).some(Boolean)) return false;
-    const epoch = sourceEpoch.current;
+    if (!question.trim() || !project || !selected || selected.status === 'skipped' || questionRunning.current || Object.values(busy).some(Boolean)) return false;
+    const epoch = questionEpoch.current;
     questionRunning.current = true; mark('question', true); fail('question');
-    const context = range ? `${selected.path} - lines ${range.start_line}-${range.end_line}` : selected.path;
+    const body = conversationScope(project.project_id, scope, selected.file_id, range, difficulty);
+    const scopeKey = conversationKey(body);
+    const context = body.scope === 'project' ? 'Whole project (bounded source excerpts)' : body.scope === 'block'
+      ? `${selected.path} - lines ${range!.start_line}-${range!.end_line}` : selected.path;
+    const matches = explanation?.project_id === project.project_id && (body.scope === 'project'
+      ? explanation.selection.scope === 'project'
+      : explanation.file_id === selected.file_id && (body.scope !== 'block' ||
+        (explanation.selection.requested?.start_line === range?.start_line && explanation.selection.requested?.end_line === range?.end_line)));
+    const previous = matches && explanation ? [explanation.summary, ...explanation.explanations.map(s => s.description)].join('\n').slice(0, 1200) : '';
     try {
-      const data = await post<{answer: string; limitations: string[]}>('/questions', {
-        project_id: project.project_id, file_id: selected.file_id, difficulty,
-        scope: range ? 'block' : 'file', ...(range || {}), question: question.trim()
+      const data = await post<QuestionReply>('/questions', {
+        ...body, question: question.trim(), history: recentHistory(questions, scopeKey),
+        history_scope: scopeKey, previous_explanation: previous
       });
-      if (epoch !== sourceEpoch.current) return false;
-      setQuestions(items => [...items.slice(-4), {question: question.trim(), ...data, context}]);
+      if (epoch !== questionEpoch.current) return false;
+      setQuestions(items => [...items.slice(-9), {question: question.trim(), ...data, context, scopeKey}]);
       return true;
-    } catch (e) { if (epoch === sourceEpoch.current) fail('question', e); return false; }
+    } catch (e) { if (epoch === questionEpoch.current) fail('question', e); return false; }
     finally { questionRunning.current = false; mark('question', false); }
   }
   function editAnswer(value: string) { setAnswer(value); setResult(null); }

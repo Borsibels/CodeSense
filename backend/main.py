@@ -16,7 +16,7 @@ from .projects import MAX_UPLOAD, MAX_ENTRIES, safe_path, ProjectError, ingest_a
 from .middleware import BodyLimitMiddleware
 from .challenges import ChallengeEngine, ChallengeSelect, ChallengeSubmit
 from .missing_line import generate as generate_missing_line
-from .qa import QuestionRequest, QuestionAnswer, build_question_prompt, ask
+from .qa import QuestionRequest, QuestionResult, build_question_prompt, ask
 from .analysis_bridge import AnalysisBridge, AnalysisBody, BridgeAnalysisResponse, BridgeError
 
 def create_app(explainer=None, inference_timeout=90, analysis=None):
@@ -165,7 +165,7 @@ def create_app(explainer=None, inference_timeout=90, analysis=None):
                 traceback.print_exc()
                 raise HTTPException(502, 'Local explanation service failed.') from exc
 
-    @app.post('/api/questions', response_model=QuestionAnswer)
+    @app.post('/api/questions', response_model=QuestionResult)
     async def question(body: QuestionRequest):
         if app.state.generation_lock.locked():
             raise HTTPException(429, 'Local AI is busy. Wait for the current request to finish.')

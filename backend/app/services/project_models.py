@@ -42,6 +42,12 @@ class ProjectFile:
     def lines(self) -> list[str]:
         return self.text.split("\n")[: self.line_count]
 
+    @cached_property
+    def javascript_scan(self):
+        """Reuse tokenization within this immutable project file; never a global source cache."""
+        from app.services.js_analysis import tokenize
+        return tokenize(self.text)
+
 
 @dataclass(frozen=True)
 class ExcludedFile:

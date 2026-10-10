@@ -510,8 +510,8 @@ def _py_syntax(project: ProjectAnalysis, path: str) -> list[PatternHit]:
 # JavaScript (Phase 3 token stream; heuristic, so every hit says so)
 # --------------------------------------------------------------------------- #
 class _Js:
-    def __init__(self, text: str) -> None:
-        scan = tokenize(text)
+    def __init__(self, text: str, scan=None) -> None:
+        scan = scan if scan is not None else tokenize(text)
         self.tokens: list[Token] = scan.tokens
         self.pairs, self.balanced = match_brackets(self.tokens)
 
@@ -778,7 +778,7 @@ def run_pattern_checks(project: ProjectAnalysis, path: str, ranges: Sequence[Ran
                 hits += _guarded("PY_MUTABLE_DEFAULT", _py_mutable_default, tree, path, shadowed)
     elif file.language == "javascript" and not path.lower().endswith((".jsx", ".tsx")):
         try:
-            js: _Js | None = _Js(file.text)
+            js: _Js | None = _Js(file.text, file.javascript_scan)
         except (RecursionError, ValueError, MemoryError):
             js = None
         if js is not None and js.balanced:  # unbalanced brackets usually mean JSX or a misread regex: do not trust the tokens
