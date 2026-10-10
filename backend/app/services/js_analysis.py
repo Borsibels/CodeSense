@@ -17,6 +17,7 @@ run time (``require(name)``, ``import(path)``). Nothing is ever executed.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import re
 
 from app.services.project_models import (
     Diagnostic,
@@ -30,6 +31,7 @@ from app.services.project_models import (
 _MAX_SIGNATURE = 200
 _MAX_TEMPLATE_DEPTH = 12
 _MAX_IMPORT_TOKENS = 400
+_ASCII_IDENTIFIER = re.compile(r'[A-Za-z_$][A-Za-z0-9_$]*')
 # A statement is scanned for at most this many top-level steps (bracketed groups count as one),
 # so adversarial input such as thousands of comma-joined declarations cannot go quadratic.
 _MAX_STATEMENT_STEPS = 80
@@ -212,7 +214,9 @@ def tokenize(text: str) -> _Scan:
             line += text.count("\n", i, end)
             i = end
         elif _is_ident_start(c):
-            j = i + 1
+            # Scan common ASCII names in C; retain the existing Unicode continuation rules.
+            match = _ASCII_IDENTIFIER.match(text, i)
+            j = match.end() if match else i + 1
             while j < n and _is_ident_part(text[j]):
                 j += 1
             tokens.append(Token("id", text[i:j], line, i, j))
@@ -808,7 +812,7 @@ class _Extractor:
 
 
 def analyze_javascript(file: ProjectFile) -> FileAnalysis:
-    scan = tokenize(file.text)
+    scan = file.javascript_scan
     extractor = _Extractor(file, scan)
     extractor.run()
     diagnostics = list(extractor.diagnostics)

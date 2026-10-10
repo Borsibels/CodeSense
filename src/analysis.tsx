@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { Analysis, Finding, PatternCheck } from './api';
+import { RichText } from './RichText';
 import { groupFindings, numberedExcerpt, outcomeLabel, rangeLabel, scopeLabel, stepLocation, strengthLabel, tierLabel, tierReasonText, verificationLabel } from './analysisText';
 
 export type Jump = (path: string, start: number | null, end: number | null) => void;
@@ -47,14 +48,14 @@ export function AnalysisLinks({ data, onJump }: { data: Analysis; onJump: Jump }
 export function AnalysisView({ data, onJump }: { data: Analysis; onJump: Jump }) {
   return <div className="analysis">
     <Scope data={data} />
-    <p><Ai /> {data.summary}</p>
-    {data.analogy && <p><b>Think of it like this. </b>{data.analogy}</p>}
-    {data.role_in_app && <p><b>Its job in the app. </b>{data.role_in_app}</p>}
-    {data.concept_to_learn && <div className="step"><span className="lbl">Concept to learn</span><b>{data.concept_to_learn.name}</b><span>{data.concept_to_learn.explanation}</span></div>}
+    <div><Ai /><RichText text={data.summary} /></div>
+    {data.analogy && <div><b>Think of it like this.</b><RichText text={data.analogy} /></div>}
+    {data.role_in_app && <div><b>Its job in the app.</b><RichText text={data.role_in_app} /></div>}
+    {data.concept_to_learn && <div className="step"><span className="lbl">Concept to learn</span><b>{data.concept_to_learn.name}</b><RichText text={data.concept_to_learn.explanation} /></div>}
     {data.explanations.length > 0 && <div className="lbl">Step by step</div>}
     {data.explanations.map((step, i) => {
       const where = stepLocation(step);
-      return <section className="step" key={i}><b>{step.title}</b><span>{step.description}</span>
+      return <section className="step" key={i}><b>{step.title}</b><RichText text={step.description} />
         {where ? <Where path={where.path} start={where.start} end={where.end} label={where.label} onJump={onJump} /> : step.location_status === 'rejected' && <span className="helper">The AI named a location that could not be verified, so none is shown.</span>}</section>;
     })}
     {data.glossary.length > 0 && <details><summary>Words explained <Checked>Written by Sift</Checked></summary><dl className="facts">{data.glossary.map(g => <Fragment key={g.term}><dt>{g.term}</dt><dd>{g.meaning}</dd></Fragment>)}</dl></details>}
@@ -69,8 +70,8 @@ function FindingCard({ finding: f, onJump }: { finding: Finding; onJump: Jump })
   const verified = verificationLabel[f.verification];
   return <article className={'finding ' + (f.tier === 'possible_problem' ? 'possible' : 'worth')}>
     <header><b>{f.id} · {f.title}</b><span className="badge">{tierLabel(f.tier)}</span><span className={'badge' + (f.verification === 'source_verified' ? ' checked' : '')} title={verified.long}>{verified.short}</span></header>
-    <p><Ai /> {f.problem}</p>
-    <dl className="facts"><dt>What could happen</dt><dd>{f.what_could_happen}</dd><dt>Likely cause</dt><dd>{f.likely_cause}</dd><dt>Idea to try</dt><dd>{f.suggestion}</dd><dt>AI's rating</dt><dd>{f.severity} impact, {f.confidence} confidence (a guess, not a probability)</dd></dl>
+    <div><Ai /><RichText text={f.problem} /></div>
+    <dl className="facts"><dt>What could happen</dt><dd><RichText text={f.what_could_happen} /></dd><dt>Likely cause</dt><dd><RichText text={f.likely_cause} /></dd><dt>Idea to try</dt><dd><RichText text={f.suggestion} /></dd><dt>AI's rating</dt><dd>{f.severity} impact, {f.confidence} confidence (a guess, not a probability)</dd></dl>
     {f.tier_reasons.length > 0 && <ul>{f.tier_reasons.map(r => <li className="helper" key={r}>{tierReasonText[r] ?? r}</li>)}</ul>}
     {f.evidence && <><span className="lbl">The code it points at <Checked>Copied from your file</Checked></span><Excerpt text={f.evidence.source_excerpt} start={f.evidence.excerpt_start_line} hit={{ start: f.start_line, end: f.end_line }} /></>}
     <Where path={f.file_path} start={f.start_line} end={f.end_line} onJump={onJump} />

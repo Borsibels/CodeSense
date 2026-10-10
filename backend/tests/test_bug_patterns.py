@@ -410,6 +410,7 @@ def test_a_file_with_thousands_of_look_alike_loops_is_bounded():
     started = time.perf_counter()
     assert checks({"a.js": "function f(arr) { let t = 0;\n" + loops + "}\n"}, "a.js") == []
     assert time.perf_counter() - started < 3.0
+
     py = "def f(a):\n" + "".join(
         f"    for i{n} in range(len(a) + 1):\n        if i{n} < len(a):\n            print(a[i{n}])\n" for n in range(2000)
     )
@@ -421,3 +422,17 @@ def test_a_file_with_thousands_of_look_alike_loops_is_bounded():
 def test_at_most_a_handful_of_hits_per_rule_are_returned_even_for_a_file_full_of_the_mistake():
     py = "def f(a):\n" + "".join(f"    for i{n} in range(len(a) + 1):\n        print(a[i{n}])\n" for n in range(40))
     assert len([h for h in checks(py) if h.rule == "PY_INDEX_PAST_END"]) <= 10
+
+
+def test_javascript_analysis_and_rules_reuse_the_same_scan(monkeypatch):
+    from app.services import js_analysis
+    original = js_analysis.tokenize
+    calls = []
+    def counted(text):
+        calls.append(text)
+        return original(text)
+    monkeypatch.setattr(js_analysis, 'tokenize', counted)
+    project = analyze_project(make_zip({'a.js': 'function f(a) { return a.length; }'}), ProjectSettings())
+    assert run_pattern_checks(project, 'a.js') == []
+    assert run_pattern_checks(project, 'a.js') == []
+    assert len(calls) == 1

@@ -297,3 +297,13 @@ body:has(.app.dash){background-image:none}
 .qa-form{position:sticky;bottom:0;z-index:1;display:flex;flex-direction:column;gap:8px;margin:auto -14px -14px;padding:12px 14px;background:var(--surface);border-top:1px solid var(--border)}
 .qa-form textarea{width:100%;max-height:200px;padding:10px 12px;background:var(--code-bg);color:var(--text);border:1px solid var(--border);font:inherit;font-size:13px;resize:vertical}
 .qa-form .btn{align-self:flex-start}.qa-form .helper{margin:0}
+.rich-text { overflow-wrap: anywhere; line-height: 1.65; }
+.rich-text > :first-child { margin-top: .4rem; }
+.rich-text > :last-child { margin-bottom: 0; }
+.rich-text p { margin: .65rem 0; }
+.rich-text h1, .rich-text h2, .rich-text h3, .rich-text h4 { font-size: 1.05rem; line-height: 1.4; margin: 1rem 0 .5rem; }
+.rich-text ul, .rich-text ol { padding-left: 1.5rem; margin: .6rem 0; }
+.rich-text li { margin: .3rem 0; }
+.rich-text pre { white-space: pre; overflow-x: auto; max-width: 100%; padding: .8rem; border-radius: 8px; background: var(--bg); }
+.rich-text code { font-family: 'JetBrains Mono', monospace; font-size: .85em; }
+.rich-text blockquote { border-left: 3px solid var(--muted); margin: .7rem 0; padding-left: .8rem; }
